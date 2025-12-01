@@ -1,0 +1,19 @@
+Brand name logo related to schools: 'poluazticali'
+Login should be using Google oath, if the use is not on DB users table add it along with photo url, google id everything without any role but don't allow it to log it unless as a valid role
+Crear ReactJS app front end with back end on python deployed on flask exposing endpoints, python back end should connect to database and AWS S3, 
+React js menus and tables should considered pagination, show records: 10,20,30,40, go first, next, previous , last, also searching capabilities and clear filters and everything compatible to big screens and small devices. 
+Options menu:1) Generar Certificados/diplomas   1.1)  uploads signatures: mages jpg, PNG, etc about signatures to s3 AWS all names should be lowercase before saving to s3 my-bucket/diplomas/signatures/This option should allow searching by name a file/signature to delete it or upload a new image for replacement. Table results will show columns: signature name, creation date, with actions to click row to update image or name professor or upload image to replace. Also remove the row.
+  1.2) upload empty layout diploma template It will allow to upload a new empty template for the diploma which will be updated as an active template to be used. Older ones will be set to inactive. This option will allow to search template and update which one is active.Table results will show name of template , date of creation, status (active/inactive) and options to remove record or click row to update valuesEmpty template should be saved: my-bucket/diplomas/templates/template file<YYYMMDD_HHMMSS>.PDFAnd save on db as well with full oath 
+
+  -1.3) generar diplomas    El cual recibira un archivo CVS first name, las name, name of the course/subject, signature name with extension, profesor name.It will accept the file and validate has all these columns. And starts processing it values should be used to place it specific vertical position but horizontal should be calculated based on length of the value to place divided by 2 to be centered horizontally. Provide some vertical positions within the empty diploma (future manual adjustment required) , signature name should be taken from s3 bucket and in rusted on the below section on some scaling to reduce it to fit in signature empty layout ..It will create a record shown on table results with columns on reactjs to track the process: name of the file csv, created timestamp , status : in process/done/failure/ , and link to download the final result file as zip which is stored on s3 my-bucket/diplomas/results/<YYYY-MM-DD>/<HH_MM_SS_FILENAME_CVS>_RESULTS.ZIP
+
+This process should be launched without waiting the user, and user can come back any time to check on the status is done to download the zip fileThe zip file will have every single template for each line on the original csv: naming convention: FirstName_LastName_CourseName_HHMMSS.pdfCourse name Cammel case with no white spaces
+Plus similar input csv with last column status : DONE or Error found description
+
+1.4) configuration option to define vertical position for each column from the csv: position vertical and starting from horizontal and font size.first name, last name, course training, profesor name, image for signature 
+
+2) Option to create users and assigned roles, screen to search user , names and update it or delete it
+3) Option to create roles: sys admin, servicios escolares, student , professor
+Sys admin all existing option availableServicios escolares -> generar Certificados diplomas (upload signatures/upload empty layout template/ generar diplomas, 1.4 configuration option)Others roles no options available for now
+
+Create dockerfile to get deployed into ecs-ec2 instance

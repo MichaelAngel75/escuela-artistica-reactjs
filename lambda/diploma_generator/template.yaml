@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Diploma Generator Lambda Function
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+  TemplateBucket:
+    Type: String
+    Description: S3 bucket containing PDF templates
+  SignaturesBucket:
+    Type: String
+    Description: S3 bucket containing signature images
+  OutputBucket:
+    Type: String
+    Description: S3 bucket for generated ZIP files
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 1024
+    Runtime: python3.11
+    Architectures:
+      - x86_64
+
+Resources:
+  DiplomaGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub diploma-generator-${Environment}
+      CodeUri: .
+      Handler: handler.handler
+      Description: Generates diploma PDFs from CSV data
+      Environment:
+        Variables:
+          TEMPLATE_BUCKET: !Ref TemplateBucket
+          SIGNATURES_BUCKET: !Ref SignaturesBucket
+          SIGNATURES_PREFIX: signatures/
+          OUTPUT_BUCKET: !Ref OutputBucket
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref TemplateBucket
+        - S3ReadPolicy:
+            BucketName: !Ref SignaturesBucket
+        - S3CrudPolicy:
+            BucketName: !Ref OutputBucket
+      Events:
+        S3Upload:
+          Type: S3
+          Properties:
+            Bucket: !Ref CSVUploadBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: .csv
+
+  CSVUploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub diploma-csv-uploads-${Environment}-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  DiplomaGeneratorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/diploma-generator-${Environment}
+      RetentionInDays: 14
+
+Outputs:
+  DiplomaGeneratorFunctionArn:
+    Description: Diploma Generator Lambda Function ARN
+    Value: !GetAtt DiplomaGeneratorFunction.Arn
+  CSVUploadBucketName:
+    Description: S3 bucket for CSV uploads
+    Value: !Ref CSVUploadBucket
