@@ -45,7 +45,7 @@ TO app_pohualizcalli;
 
 
 -------------------------------------------------------------------------------------------------------------------
-
+--- recommended:  POSTGRES_HOST_AUTH_METHOD=trust
 SHOW hba_file;
 SELECT pg_reload_conf();  --- permission denied
 SHOW ssl;    ---- is ON
@@ -260,7 +260,7 @@ ALTER TABLE academy_pohuazlicalli.templates ADD CONSTRAINT templates_created_by_
 
 export ACADEMY_DATABASE_URL=<< this is not required is done by secret manager>
 export ACADEMY_DB_SECRET_MANAGER=
-export ACADEMY_INTERNAL_APP_DOMAIN=admin.pohualizcalli.link
+export ACADEMY_INTERNAL_APP_DOMAIN=admin.<website>.com
 export ACADEMY_DEV_DOMAIN=localhost:5000
 ----- for logging into production  console.log 
 export ACADEMY_NODE_ENV=production
