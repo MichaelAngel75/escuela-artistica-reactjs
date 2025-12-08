@@ -1,29 +1,90 @@
-// import { Pool, neonConfig } from '@neondatabase/serverless';
-// import { drizzle } from 'drizzle-orm/neon-serverless';
+// server/db.ts
+
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
-// import ws from "ws";
 import * as schema from "@shared/schema";
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from "@aws-sdk/client-secrets-manager";
 
-// neonConfig.webSocketConstructor = ws;
+const secretName = process.env.ACADEMY_DB_SECRET_MANAGER;
+const region = process.env.AWS_REGION;
 
-if (!process.env.ACADEMY_DATABASE_URL) {
-  throw new Error(
-    "ACADEMY_DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+// Basic sanity checks (no await here, so it's fine)
+if (!secretName) {
+  throw new Error("ACADEMY_DB_SECRET_MANAGER must be set");
+}
+if (!region) {
+  throw new Error("AWS_REGION must be set");
 }
 
-// export const pool = new Pool({ connectionString: process.env.ACADEMY_DATABASE_URL });
-// export const db = drizzle({ client: pool, schema });
+const secretsClient = new SecretsManagerClient({ region });
 
-const pool = new Pool({
-  connectionString: process.env.ACADEMY_DATABASE_URL,
-  max: 15, // max connections
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 6000,
-  ssl: { rejectUnauthorized: false },
-});
+let pool: Pool | null = null;
+let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
-// Initialize Drizzle ORM
-// export const db = drizzle({ client: pool, schema });
-export const db = drizzle(pool, { schema });
+async function ensureConnectionString(): Promise<string> {
+  if (process.env.ACADEMY_DATABASE_URL) {
+    return process.env.ACADEMY_DATABASE_URL;
+  }
+
+  // 🔐 Fetch secret only once when first needed
+  const response = await secretsClient.send(
+    new GetSecretValueCommand({
+      SecretId: secretName,
+      VersionStage: "AWSCURRENT",
+    }),
+  );
+
+  if (!response.SecretString) {
+    throw new Error("SecretString is empty in Secrets Manager response");
+  }
+
+  const secretObj = JSON.parse(response.SecretString) as {
+    db_user?: string;
+    db_password?: string;
+    db_to_concatenate_1?: string;
+    db_to_concatenate_2?: string;
+  };
+
+  const { db_user, db_password, db_to_concatenate_1, db_to_concatenate_2 } =
+    secretObj;
+
+    
+  if (!db_user || !db_password || !db_to_concatenate_1 || !db_to_concatenate_2) {
+    throw new Error(`Missing required components for ACADEMY_DATABASE_URL`);
+  }
+
+  const connStr = `${db_to_concatenate_1}${db_user}:${db_password}${db_to_concatenate_2}`;
+  process.env.ACADEMY_DATABASE_URL = connStr;
+  return connStr;
+}
+
+async function createPool(): Promise<Pool> {
+  if (pool) return pool;
+
+  const connectionString = await ensureConnectionString();
+
+  pool = new Pool({
+    connectionString,
+    max: 15,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 6000,
+    ssl:  {
+      rejectUnauthorized: false
+    }
+    // ssl: { rejectUnauthorized: false },
+  });
+
+  return pool;
+}
+
+// ✅ Main entry for the rest of your app
+export async function getDb() {
+  if (dbInstance) return dbInstance;
+
+  const pool = await createPool();
+  dbInstance = drizzle(pool, { schema });
+  return dbInstance;
+}

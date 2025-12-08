@@ -1,8 +1,10 @@
 
 --- -----------------------------------------------------------------------------------------------------------------------
 ---   Creates DB Schema and user
-
+--- Create user is to create a role --
 CREATE USER app_pohualizcalli WITH PASSWORD 'MyGat0No10enc0nTr4r45p0rqu3N03st4';
+GRANT CONNECT ON DATABASE pohualizcalli TO app_pohualizcalli;
+
 
 CREATE USER app_user WITH PASSWORD 'mypassword123';
 CREATE SCHEMA academy_pohuazlicalli AUTHORIZATION postgres;
@@ -24,18 +26,56 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   academy_pohuazlicalli.users
 TO app_pohualizcalli;
 
---- despues de creacion de las tablas
-GRANT USAGE, SELECT ON SEQUENCE
-  academy_pohuazlicalli.configuration_id_seq,
-  academy_pohuazlicalli.diploma_batches_id_seq,
-  academy_pohuazlicalli.diploma_batches_total_records_seq,
-  academy_pohuazlicalli.signatures_id_seq,
-  academy_pohuazlicalli.templates_id_seq
+----- despues de creacion de las tablas
+--GRANT USAGE, SELECT ON SEQUENCE
+--  academy_pohuazlicalli.configuration_id_seq,
+--  academy_pohuazlicalli.diploma_batches_id_seq,
+--  academy_pohuazlicalli.diploma_batches_total_records_seq,
+--  academy_pohuazlicalli.signatures_id_seq,
+--  academy_pohuazlicalli.templates_id_seq
+--TO app_pohualizcalli;
+
+
+-- 1) Grant USAGE on the enum types
+GRANT USAGE ON TYPE
+  academy_pohuazlicalli.role,
+  academy_pohuazlicalli.batch_status,
+  academy_pohuazlicalli.template_status
 TO app_pohualizcalli;
 
 
+-------------------------------------------------------------------------------------------------------------------
 
-academy_pohuazlicalli."role"
+SHOW hba_file;
+SELECT pg_reload_conf();  --- permission denied
+SHOW ssl;    ---- is ON
+SHOW ssl_cert_file;
+SHOW ssl_key_file;
+SHOW ssl_ca_file;
+SELECT 
+    ssl, *
+--    ssl_cipher,
+--    ssl_version
+FROM pg_stat_ssl 
+WHERE pid = pg_backend_pid();
+------------------------------
+SELECT 
+    pid,
+    usename,
+    client_addr,
+    ssl
+--    ssl_cipher,
+--    ssl_version
+FROM pg_stat_ssl
+JOIN pg_stat_activity USING (pid)
+ORDER BY pid;
+------------------------------
+SHOW ssl;
+SHOW ssl_prefer_server_ciphers;
+SHOW ssl_min_protocol_version;
+
+SHOW rds.force_ssl;
+
 
 
 -------------------------------------------------------------------------------------------------------------------
@@ -47,18 +87,26 @@ academy_pohuazlicalli."role"
 
 -- DROP TABLE academy_pohuazlicalli.users;
 
-CREATE TABLE academy_pohuazlicalli.users (
-	id varchar DEFAULT gen_random_uuid() NOT NULL,
-	email varchar NULL,
-	first_name varchar NULL,
-	last_name varchar NULL,
-	profile_image_url varchar NULL,
-	"role" academy_pohuazlicalli."role" DEFAULT 'student'::role NOT NULL,
-	created_at timestamp DEFAULT now() NULL,
-	updated_at timestamp DEFAULT now() NULL,
-	CONSTRAINT users_email_unique UNIQUE (email),
-	CONSTRAINT users_pkey PRIMARY KEY (id)
+CREATE TYPE academy_pohuazlicalli.role AS ENUM (
+  'student',
+  'teacher',
+  'admin'
 );
+
+
+CREATE TABLE academy_pohuazlicalli.users_pohualizcalli (
+  id varchar DEFAULT gen_random_uuid() NOT NULL,
+  email varchar UNIQUE,
+  first_name varchar,
+  last_name varchar,
+  profile_image_url varchar,
+  "role" academy_pohuazlicalli.role DEFAULT 'student' NOT NULL,
+  created_at timestamp DEFAULT now(),
+  updated_at timestamp DEFAULT now(),
+  PRIMARY KEY (id)
+);
+
+
 
 
 
@@ -91,6 +139,14 @@ VALUES(nextval('configuration_id_seq'::regclass), '', '', now(), now());
 
 -------------------------------------------------------------------------------------------------------------------
 
+CREATE TYPE academy_pohuazlicalli.batch_status AS ENUM (
+  'procesando',
+  'completado',
+  'error',
+  'recibido'
+);
+
+
 -- academy_pohuazlicalli.diploma_batches definition
 
 -- Drop table
@@ -98,9 +154,10 @@ VALUES(nextval('configuration_id_seq'::regclass), '', '', now(), now());
 -- DROP TABLE academy_pohuazlicalli.diploma_batches;
 
 CREATE TABLE academy_pohuazlicalli.diploma_batches (
-	id serial4 NOT NULL,
+--	id serial4 NOT NULL,
+	id int4 GENERATED ALWAYS AS IDENTITY( INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1 NO CYCLE) NOT NULL,
 	file_name varchar(255) NOT NULL,
-	status academy_pohuazlicalli."batch_status" DEFAULT 'processing'::batch_status NOT NULL,
+	status academy_pohuazlicalli."batch_status" DEFAULT 'recibido' NOT NULL,
 	total_records serial4 NOT NULL,
 	zip_url text NULL,
 	created_by varchar NULL,
@@ -149,7 +206,8 @@ VALUES('', '', '');
 -- DROP TABLE academy_pohuazlicalli.signatures;
 
 CREATE TABLE academy_pohuazlicalli.signatures (
-	id serial4 NOT NULL,
+--	id serial4 NOT NULL,
+	id int4 GENERATED ALWAYS AS IDENTITY( INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1 NO CYCLE) NOT NULL,
 	"name" varchar(255) NOT NULL,
 	url text NOT NULL,
 	professor_name varchar(255) NOT NULL,
@@ -168,6 +226,10 @@ ALTER TABLE academy_pohuazlicalli.signatures ADD CONSTRAINT signatures_created_b
 
 -------------------------------------------------------------------------------------------------------------------
 
+CREATE TYPE academy_pohuazlicalli.template_status AS ENUM (
+  'Active',
+  'Inactive'
+);
 -- academy_pohuazlicalli.templates definition
 
 -- Drop table
@@ -175,10 +237,11 @@ ALTER TABLE academy_pohuazlicalli.signatures ADD CONSTRAINT signatures_created_b
 -- DROP TABLE academy_pohuazlicalli.templates;
 
 CREATE TABLE academy_pohuazlicalli.templates (
-	id serial4 NOT NULL,
+--	id serial4 NOT NULL,
+    id int4 GENERATED ALWAYS AS IDENTITY( INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1 NO CYCLE) NOT NULL,
 	"name" varchar(255) NOT NULL,
 	url text NOT NULL,
-	status academy_pohuazlicalli."template_status" DEFAULT 'inactive'::template_status NOT NULL,
+	status academy_pohuazlicalli."template_status" DEFAULT 'Inactive' NOT NULL,
 	created_by varchar NULL,
 	created_at timestamp DEFAULT now() NULL,
 	updated_at timestamp DEFAULT now() NULL,
@@ -195,15 +258,37 @@ ALTER TABLE academy_pohuazlicalli.templates ADD CONSTRAINT templates_created_by_
 
 -------------------------------------------------------------------------------------------------------------------
 
-export ACADEMY_DATABASE_URL=
-export ACADEMY_REPLIT_INTERNAL_APP_DOMAIN=
-export ACADEMY_REPLIT_DEV_DOMAIN=
-export ACADEMY_NODE_ENV=
-export ACADEMY_REPL_ID=
+export ACADEMY_DATABASE_URL=<< this is not required is done by secret manager>
+export ACADEMY_DB_SECRET_MANAGER=
+export ACADEMY_INTERNAL_APP_DOMAIN=admin.pohualizcalli.link
+export ACADEMY_DEV_DOMAIN=localhost:5000
+----- for logging into production  console.log 
+export ACADEMY_NODE_ENV=production
+-----------------  S3 templates:
+---- arn:aws:s3:::my-bucket
+---  /<my-bucket-name>/generacion-diplomas/empty-templates/<4-digit-year>
+---  /<my-bucket-name>//generacion-diplomas/signatures/<4-digit-year>/
+---  /<my-bucket-name>//generacion-diplomas/generated-diplomas/<id-generation-db>
 export ACADEMY_PUBLIC_OBJECT_SEARCH_PATHS=
 export ACADEMY_PRIVATE_OBJECT_DIR=
 export ACADEMY_ISSUER_URL=
-export ACADEMY_SESSION_SECRET=
+export ACADEMY_SESSION_SECRET=any-word-for-generatin-sessionbrowser
+
+---- replitAuth.ts ---
+ACADEMY_GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+ACADEMY_GOOGLE_CLIENT_SECRET=xxxx
+ACADEMY_GOOGLE_CALLBACK_URL=http://localhost:5000/api/callback
+ACADEMY_DB_SECRET_MANAGER=
+
+# Allow only Gmail:
+ACADEMY_ALLOWED_DOMAINS=gmail.com
+
+# Or allow Gmail + school domain:
+# ACADEMY_ALLOWED_DOMAINS=gmail.com,pohualizcalli.edu
+
+
+-- export ACADEMY_REPL_ID=
+
 
 
 

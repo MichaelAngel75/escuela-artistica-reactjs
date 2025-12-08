@@ -15,8 +15,9 @@ import {
   type Configuration,
   type InsertConfiguration,
 } from "@shared/schema";
-import { db } from "./db";
+import { getDb } from "./db";
 import { eq, desc } from "drizzle-orm";
+import { ObjectStorageService } from "./objectStorage";
 
 // Reference: blueprint:javascript_database
 // Reference: blueprint:javascript_log_in_with_replit
@@ -55,11 +56,13 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // User operations (mandatory for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
+    const db = await getDb();
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    const db = await getDb();
     const [user] = await db
       .insert(users)
       .values(userData)
@@ -76,20 +79,24 @@ export class DatabaseStorage implements IStorage {
   
   // Signature operations
   async getSignatures(): Promise<Signature[]> {
+    const db = await getDb();
     return await db.select().from(signatures).orderBy(desc(signatures.createdAt));
   }
   
   async getSignature(id: number): Promise<Signature | undefined> {
+    const db = await getDb();
     const [signature] = await db.select().from(signatures).where(eq(signatures.id, id));
     return signature;
   }
   
   async createSignature(signatureData: InsertSignature): Promise<Signature> {
+    const db = await getDb();
     const [signature] = await db.insert(signatures).values(signatureData).returning();
     return signature;
   }
   
   async updateSignature(id: number, signatureData: Partial<InsertSignature>): Promise<Signature | undefined> {
+    const db = await getDb();
     const [signature] = await db
       .update(signatures)
       .set({ ...signatureData, updatedAt: new Date() })
@@ -97,32 +104,50 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return signature;
   }
-  
+
   async deleteSignature(id: number): Promise<void> {
+    const db = await getDb();
+    const [signature] = await db
+      .select()
+      .from(signatures)
+      .where(eq(signatures.id, id));
+  
+    if (!signature) return;
+  
+    if (signature.url) {
+      await this.objectStorage.deleteObjectByRawPath(signature.url);
+    }
+  
     await db.delete(signatures).where(eq(signatures.id, id));
   }
   
+  
   // Template operations
   async getTemplates(): Promise<Template[]> {
+    const db = await getDb();
     return await db.select().from(templates).orderBy(desc(templates.createdAt));
   }
   
   async getTemplate(id: number): Promise<Template | undefined> {
+    const db = await getDb();
     const [template] = await db.select().from(templates).where(eq(templates.id, id));
     return template;
   }
   
   async getActiveTemplate(): Promise<Template | undefined> {
+    const db = await getDb();
     const [template] = await db.select().from(templates).where(eq(templates.status, 'active'));
     return template;
   }
   
   async createTemplate(templateData: InsertTemplate): Promise<Template> {
+    const db = await getDb();
     const [template] = await db.insert(templates).values(templateData).returning();
     return template;
   }
   
   async updateTemplate(id: number, templateData: Partial<InsertTemplate>): Promise<Template | undefined> {
+    const db = await getDb();
     const [template] = await db
       .update(templates)
       .set({ ...templateData, updatedAt: new Date() })
@@ -132,32 +157,65 @@ export class DatabaseStorage implements IStorage {
   }
   
   async setTemplateActive(id: number): Promise<void> {
+    const db = await getDb();
     // Deactivate all templates first
     await db.update(templates).set({ status: 'inactive' });
     // Activate the selected template
     await db.update(templates).set({ status: 'active' }).where(eq(templates.id, id));
   }
   
+  objectStorage = new ObjectStorageService();
+
+  // export async function deleteTemplate(id: number): Promise<void> {
+
   async deleteTemplate(id: number): Promise<void> {
+    const db = await getDb();
+
+    // 1) Load template first to get the URL
+    const [template] = await db
+                          .select()
+                          .from(templates)
+                          .where(eq(templates.id, id));
+
+    if (!template) {
+      // nothing to delete
+      return;
+    }                          
+
+    // 2) Delete file from GCS (if URL present)
+    if (template.url) {
+      try {
+        await this.objectStorage.deleteObjectByRawPath(template.url);
+      } catch (err) {
+        console.error("Error deleting template file from storage:", err);
+        // Optional: decide if you want to still delete DB row or abort
+        // For now, let's continue and still delete from DB
+      }
+    }
+
     await db.delete(templates).where(eq(templates.id, id));
   }
   
   // Diploma batch operations
   async getDiplomaBatches(): Promise<DiplomaBatch[]> {
+    const db = await getDb();
     return await db.select().from(diplomaBatches).orderBy(desc(diplomaBatches.createdAt));
   }
   
   async getDiplomaBatch(id: number): Promise<DiplomaBatch | undefined> {
+    const db = await getDb();
     const [batch] = await db.select().from(diplomaBatches).where(eq(diplomaBatches.id, id));
     return batch;
   }
   
   async createDiplomaBatch(batchData: InsertDiplomaBatch): Promise<DiplomaBatch> {
+    const db = await getDb();
     const [batch] = await db.insert(diplomaBatches).values(batchData).returning();
     return batch;
   }
   
   async updateDiplomaBatch(id: number, batchData: Partial<InsertDiplomaBatch>): Promise<DiplomaBatch | undefined> {
+    const db = await getDb();
     const [batch] = await db
       .update(diplomaBatches)
       .set({ ...batchData, updatedAt: new Date() })
@@ -168,11 +226,13 @@ export class DatabaseStorage implements IStorage {
   
   // Configuration operations
   async getConfiguration(): Promise<Configuration | undefined> {
+    const db = await getDb();
     const [config] = await db.select().from(configuration).limit(1);
     return config;
   }
   
   async upsertConfiguration(configData: InsertConfiguration): Promise<Configuration> {
+    const db = await getDb();
     const existing = await this.getConfiguration();
     if (existing) {
       const [config] = await db

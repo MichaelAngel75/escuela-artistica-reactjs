@@ -1,34 +1,23 @@
-// pages/login.tsx
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAppStore } from "@/lib/store";
 import { useLocation } from "wouter";
 import logoImage from "@assets/generated_images/academic_logo_for_poluazticali.png";
-import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
-  const { user, isLoading } = useAuth();
+  const { login, user } = useAppStore();
   const [, setLocation] = useLocation();
 
-  useEffect(() => {
-    if (!isLoading && user) {
-      setLocation("/dashboard");
-    }
-  }, [user, isLoading, setLocation]);
+  if (user) {
+    setLocation('/dashboard');
+    return null;
+  }
 
   const handleGoogleLogin = () => {
-    // Start real Google OAuth flow (handled by backend)
-    window.location.href = "/api/login";
+    // Mock login process
+    login();
+    setLocation('/dashboard');
   };
-
-  // Optional: tiny loading UI while checking session
-  if (isLoading) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-background">
-        <p className="text-muted-foreground text-sm">Checking session…</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-paper bg-background p-4">

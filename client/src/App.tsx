@@ -12,10 +12,33 @@ import UsersPage from "@/pages/users";
 import ConfigurationPage from "@/pages/configuration";
 import NotFound from "@/pages/not-found";
 import { useAppStore } from "@/lib/store";
+import { useAuth } from "./hooks/useAuth";
+
+// function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
+//   const { user } = useAppStore();
+//   const [, setLocation] = useLocation();
+
+//   if (!user) {
+//     return <LoginPage />;
+//   }
+
+//   return (
+//     <DashboardLayout>
+//       <Component />
+//     </DashboardLayout>
+//   );
+// }
 
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
-  const { user } = useAppStore();
-  const [, setLocation] = useLocation();
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground text-sm">Checking authentication…</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return <LoginPage />;

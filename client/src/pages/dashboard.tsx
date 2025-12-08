@@ -1,9 +1,17 @@
 import { useAppStore } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileSignature, FileBadge, Users, Award } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Dashboard() {
   const { user, signatures, templates, users } = useAppStore();
+
+  const { user: authUser } = useAuth();
+  const fullName =
+    authUser &&
+    ([authUser.firstName, authUser.lastName].filter(Boolean).join(" ") ||
+      authUser.email ||
+      "User");
 
   const stats = [
     {
@@ -39,7 +47,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-serif font-bold text-primary">Welcome back, {user?.name}</h1>
+        <h1 className="text-3xl font-serif font-bold text-primary">Welcome back, {fullName}</h1>
         <p className="text-muted-foreground">Here is an overview of the certification system.</p>
       </div>
 

@@ -1,0 +1,76 @@
+// import { Pool, neonConfig } from '@neondatabase/serverless';
+// import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+// import ws from "ws";
+import * as schema from "@shared/schema";
+
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from "@aws-sdk/client-secrets-manager";
+
+const secret_name =  process.env.ACADEMY_DB_SECRET_MANAGER;
+
+const client = new SecretsManagerClient({
+  region: process.env.AWS_REGION,
+});
+
+
+// 🔐 1) Fetch secret BEFORE doing any DB stuff
+let response;
+try {
+  response = await client.send(
+    new GetSecretValueCommand({
+      SecretId: secret_name,
+      VersionStage: "AWSCURRENT",
+    })
+  );
+} catch (error) {
+  console.error("Error reading secret from Secrets Manager: {}", secret_name,  error);
+  throw error;
+}
+
+if (!response.SecretString) {
+  throw new Error("SecretString is empty in Secrets Manager response");
+}
+
+// 🔐 2) Parse JSON and populate process.env if missing
+const secretObj = JSON.parse(response.SecretString) as {
+  db_user?: string;
+  db_password?: string;
+  db_to_concatenate_1?: string;
+  db_to_concatenate_2?: string;
+};
+
+const { db_user, db_password, db_to_concatenate_1, db_to_concatenate_2 } = secretObj;
+
+if (!process.env.ACADEMY_DATABASE_URL) {
+  if (!db_user || !db_password || !db_to_concatenate_1 || !db_to_concatenate_2) {
+    throw new Error(`Missing required components for ACADEMY_DATABASE_URL`);
+  }
+
+  process.env.ACADEMY_DATABASE_URL = `${db_to_concatenate_1}${db_user}:${db_password}${db_to_concatenate_2}`;
+}
+
+if (!process.env.ACADEMY_DATABASE_URL) {
+  throw new Error(
+    "ACADEMY_DATABASE_URL must be set. Did you forget to provision a database?",
+  );
+}
+
+// export const pool = new Pool({ connectionString: process.env.ACADEMY_DATABASE_URL });
+// export const db = drizzle({ client: pool, schema });
+
+const pool = new Pool({
+  connectionString: process.env.ACADEMY_DATABASE_URL,
+  max: 15, // max connections
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 6000,
+  ssl: { rejectUnauthorized: false },
+});
+
+
+// Initialize Drizzle ORM
+// export const db = drizzle({ client: pool, schema });
+export const db = drizzle(pool, { schema });

@@ -38,9 +38,54 @@ export class ObjectNotFoundError extends Error {
   }
 }
 
+// /// ------ how to call the below new services -----
+// const storage = new ObjectStorageService();
+
+// // 1) upload a blank diploma template PDF for year 2025
+// const emptyTemplateUrl = await storage.getEmptyTemplateUploadURL(2025, "base-template.pdf");
+
+// // 2) upload a professor signature PNG for 2025
+// const signatureUrl = await storage.getSignatureUploadURL(2025, "prof-garcia.png");
+
+// // 3) upload a generated diploma PDF for generation ID 123
+// const diplomaUrl = await storage.getGeneratedDiplomaUploadURL(123, "student-juan-perez.pdf");
+
 export class ObjectStorageService {
   constructor() {}
 
+  async deleteObjectByRawPath(rawPath: string): Promise<void> {
+    if (!rawPath) return;
+  
+    let objectPath = rawPath;
+  
+    // If the URL is a FULL S3 URL, extract "/bucket/object..."
+    // Examples:
+    // https://my-bucket.s3.amazonaws.com/folder/file.png
+    // https://s3.amazonaws.com/my-bucket/folder/file.png
+    if (rawPath.startsWith("https://")) {
+      const url = new URL(rawPath);
+  
+      // CASE 1: https://my-bucket.s3.amazonaws.com/path/file.png
+      if (url.hostname.includes(".s3")) {
+        const bucketName = url.hostname.split(".s3")[0];
+        const objectName = url.pathname.slice(1); // remove leading "/"
+        return this.deleteFromS3(bucketName, objectName);
+      }
+  
+      // CASE 2: https://s3.amazonaws.com/my-bucket/path/file.png
+      const parts = url.pathname.split("/");
+      const bucketName = parts[1];
+      const objectName = parts.slice(2).join("/");
+      return this.deleteFromS3(bucketName, objectName);
+    }
+  
+    // If it is a PATH like "/bucket/folder/file.png"
+    const { bucketName, objectName } = parseObjectPath(objectPath);
+    return this.deleteFromS3(bucketName, objectName);
+  }
+  
+
+  
   getPublicObjectSearchPaths(): Array<string> {
     const pathsStr = process.env.ACADEMY_PUBLIC_OBJECT_SEARCH_PATHS || "";
     const paths = Array.from(
@@ -187,6 +232,50 @@ export class ObjectStorageService {
       requestedPermission: requestedPermission ?? ObjectPermission.READ,
     });
   }
+  private buildPath(relativePath: string): { bucketName: string; objectName: string } {
+    const baseDir = this.getPrivateObjectDir(); // e.g. "/my-bucket-name/generacion-diplomas"
+    const fullPath = `${baseDir}/${relativePath}`; // no leading slash needed in relativePath
+    return parseObjectPath(fullPath);
+  }
+  
+  async getEmptyTemplateUploadURL(year: number, fileName: string): Promise<string> {
+    const { bucketName, objectName } = this.buildPath(
+      `empty-templates/${year}/${fileName}`
+    );
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+  }
+  
+  async getSignatureUploadURL(year: number, fileName: string): Promise<string> {
+    const { bucketName, objectName } = this.buildPath(
+      `signatures/${year}/${fileName}`
+    );
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+  }
+  
+  async getGeneratedDiplomaUploadURL(
+    generationId: number | string,
+    fileName: string
+  ): Promise<string> {
+    const { bucketName, objectName } = this.buildPath(
+      `generated-diplomas/${generationId}/${fileName}`
+    );
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+  }
 }
 
 function parseObjectPath(path: string): {
@@ -239,3 +328,6 @@ async function signObjectURL({
   const { signed_url: signedURL } = await response.json();
   return signedURL;
 }
+
+
+
