@@ -14,6 +14,8 @@ import {
   insertDiplomaBatchSchema,
   insertConfigurationSchema,
 } from "@shared/schema";
+import { uploadPdfToS3, deleteS3ObjectByUrl, buildTemplateKey, presignGetUrlByS3Url } from "./s3";
+
 
 // Configure multer for CSV file uploads
 const upload = multer({ storage: multer.memoryStorage() });
@@ -21,7 +23,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
-
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
   // ======= Auth Routes =======
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
@@ -34,6 +38,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
   // ======= Signature Routes =======
   app.get('/api/signatures', isAuthenticated, async (req, res) => {
     try {
@@ -82,21 +89,61 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
   // ======= Template Routes =======
-  app.get('/api/templates', isAuthenticated, async (req, res) => {
+
+  // List templates from DB
+  app.get("/api/templates", isAuthenticated, async (req, res) => {
     try {
-      const templates = await storage.getTemplates();
-      res.json(templates);
+      const list = await storage.getTemplates();
+      res.json(list);
     } catch (error) {
       console.error("Error fetching templates:", error);
       res.status(500).json({ message: "Failed to fetch templates" });
     }
   });
 
-  app.post('/api/templates', isAuthenticated, async (req: any, res) => {
+  // Presign for preview/download (private S3 objects)
+  app.get("/api/templates/:id/presign", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const template = await storage.getTemplate(id);
+      if (!template) return res.status(404).json({ message: "Template not found" });
+
+      const signedUrl = await presignGetUrlByS3Url(template.url, 300);
+      res.json({ url: signedUrl });
+    } catch (error) {
+      console.error("Error presigning template:", error);
+      res.status(500).json({ message: "Failed to presign template" });
+    }
+  });
+
+  // Create template: upload pdf to S3, store url in DB
+  app.post("/api/templates", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
       const email = req.user.claims.email;
-      const data = insertTemplateSchema.parse({ ...req.body, createdBy: email });
+
+      const name = String(req.body?.name ?? "").trim();
+      if (!name) return res.status(400).json({ message: "name is required" });
+
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "file is required" });
+      if (file.mimetype !== "application/pdf") {
+        return res.status(400).json({ message: "Only PDF files are allowed" });
+      }
+
+      const key = buildTemplateKey(file.originalname);
+      const s3Url = await uploadPdfToS3({ key, body: file.buffer });
+
+      const data = insertTemplateSchema.parse({
+        name,
+        url: s3Url,
+        status: "Inactive", // default
+        createdBy: email,
+      });
+
       const template = await storage.createTemplate(data);
       res.json(template);
     } catch (error) {
@@ -105,23 +152,53 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.patch('/api/templates/:id', isAuthenticated, async (req, res) => {
+  // Update template: rename and/or replace pdf
+  app.patch("/api/templates/:id", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const template = await storage.updateTemplate(id, req.body);
-      if (!template) {
-        return res.status(404).json({ message: "Template not found" });
+      const id = Number(req.params.id);
+      const existing = await storage.getTemplate(id);
+      if (!existing) return res.status(404).json({ message: "Template not found" });
+
+      const updates: any = {};
+
+      if (req.body?.name) {
+        const newName = String(req.body.name).trim();
+        if (!newName) return res.status(400).json({ message: "name cannot be empty" });
+        updates.name = newName;
       }
-      res.json(template);
+
+      // optional file replacement
+      if (req.file) {
+        if (req.file.mimetype !== "application/pdf") {
+          return res.status(400).json({ message: "Only PDF files are allowed" });
+        }
+
+        const key = buildTemplateKey(req.file.originalname);
+        const newS3Url = await uploadPdfToS3({ key, body: req.file.buffer });
+
+        // delete old object
+        if (existing.url) {
+          await deleteS3ObjectByUrl(existing.url);
+        }
+
+        updates.url = newS3Url;
+      }
+
+      const updated = await storage.updateTemplate(id, updates);
+      res.json(updated);
     } catch (error) {
       console.error("Error updating template:", error);
       res.status(400).json({ message: "Failed to update template" });
     }
   });
 
-  app.post('/api/templates/:id/activate', isAuthenticated, async (req, res) => {
+  // Enforce only one Active
+  app.post("/api/templates/:id/activate", isAuthenticated, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = Number(req.params.id);
+      const existing = await storage.getTemplate(id);
+      if (!existing) return res.status(404).json({ message: "Template not found" });
+
       await storage.setTemplateActive(id);
       res.json({ success: true });
     } catch (error) {
@@ -130,9 +207,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.delete('/api/templates/:id', isAuthenticated, async (req, res) => {
+  // Delete from S3 + DB
+  app.delete("/api/templates/:id", isAuthenticated, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = Number(req.params.id);
+      const existing = await storage.getTemplate(id);
+      if (!existing) return res.status(404).json({ message: "Template not found" });
+
+      if (existing.url) {
+        await deleteS3ObjectByUrl(existing.url);
+      }
+
       await storage.deleteTemplate(id);
       res.json({ success: true });
     } catch (error) {
@@ -141,6 +226,68 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+
+  // app.get('/api/templates', isAuthenticated, async (req, res) => {
+  //   try {
+  //     const templates = await storage.getTemplates();
+  //     res.json(templates);
+  //   } catch (error) {
+  //     console.error("Error fetching templates:", error);
+  //     res.status(500).json({ message: "Failed to fetch templates" });
+  //   }
+  // });
+
+  // app.post('/api/templates', isAuthenticated, async (req: any, res) => {
+  //   try {
+  //     const email = req.user.claims.email;
+  //     const data = insertTemplateSchema.parse({ ...req.body, createdBy: email });
+  //     const template = await storage.createTemplate(data);
+  //     res.json(template);
+  //   } catch (error) {
+  //     console.error("Error creating template:", error);
+  //     res.status(400).json({ message: "Failed to create template" });
+  //   }
+  // });
+
+  // app.patch('/api/templates/:id', isAuthenticated, async (req, res) => {
+  //   try {
+  //     const id = parseInt(req.params.id);
+  //     const template = await storage.updateTemplate(id, req.body);
+  //     if (!template) {
+  //       return res.status(404).json({ message: "Template not found" });
+  //     }
+  //     res.json(template);
+  //   } catch (error) {
+  //     console.error("Error updating template:", error);
+  //     res.status(400).json({ message: "Failed to update template" });
+  //   }
+  // });
+
+  // app.post('/api/templates/:id/activate', isAuthenticated, async (req, res) => {
+  //   try {
+  //     const id = parseInt(req.params.id);
+  //     await storage.setTemplateActive(id);
+  //     res.json({ success: true });
+  //   } catch (error) {
+  //     console.error("Error activating template:", error);
+  //     res.status(500).json({ message: "Failed to activate template" });
+  //   }
+  // });
+
+  // app.delete('/api/templates/:id', isAuthenticated, async (req, res) => {
+  //   try {
+  //     const id = parseInt(req.params.id);
+  //     await storage.deleteTemplate(id);
+  //     res.json({ success: true });
+  //   } catch (error) {
+  //     console.error("Error deleting template:", error);
+  //     res.status(500).json({ message: "Failed to delete template" });
+  //   }
+  // });
+
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
   // ======= Diploma Batch Routes =======
   app.get('/api/diploma-batches', isAuthenticated, async (req, res) => {
     try {
@@ -207,6 +354,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
   // ======= Configuration Routes =======
   app.get('/api/configuration', isAuthenticated, async (req, res) => {
     try {
@@ -231,18 +381,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
   // ======= Object Storage Routes =======
   // Reference: blueprint:javascript_object_storage
   
   // Endpoint for serving private objects (signatures, templates)
   app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
-    const userId = req.user?.claims?.sub;
+    const email = req.user?.claims?.email;
     const objectStorageService = new ObjectStorageService();
     try {
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       const canAccess = await objectStorageService.canAccessObjectEntity({
         objectFile,
-        userId: userId,
+        userId: email,
         requestedPermission: ObjectPermission.READ,
       });
       if (!canAccess) {
@@ -258,6 +411,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
   // Endpoint for getting upload URL
   app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
     const objectStorageService = new ObjectStorageService();
@@ -265,20 +421,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ uploadURL });
   });
 
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
   // Endpoint for setting ACL after upload (signatures)
   app.put("/api/signatures/upload", isAuthenticated, async (req: any, res) => {
     if (!req.body.url) {
       return res.status(400).json({ error: "url is required" });
     }
 
-    const userId = req.user?.claims?.sub;
+    const email = req.user?.claims?.email;
 
     try {
       const objectStorageService = new ObjectStorageService();
       const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
         req.body.url,
         {
-          owner: userId,
+          owner: email,
           visibility: "public", // Signatures are public for viewing on diplomas
         },
       );
@@ -290,20 +449,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
   // Endpoint for setting ACL after upload (templates)
   app.put("/api/templates/upload", isAuthenticated, async (req: any, res) => {
     if (!req.body.url) {
       return res.status(400).json({ error: "url is required" });
     }
 
-    const userId = req.user?.claims?.sub;
+    const email = req.user?.claims?.email;
 
     try {
       const objectStorageService = new ObjectStorageService();
       const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
         req.body.url,
         {
-          owner: userId,
+          owner: email,
           visibility: "private", // Templates are private
         },
       );

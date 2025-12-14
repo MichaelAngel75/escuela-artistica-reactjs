@@ -27,9 +27,10 @@ export async function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.ACADEMY_NODE_ENV === "production",
-      maxAge: sessionTtl * 1000, // cookie maxAge is ms
-    },
+      secure: "auto",      // <- key change
+      sameSite: "lax",     // good default for OAuth redirects
+      maxAge: sessionTtl,  // (milliseconds) keep consistent
+    },    
   });  
 }
 
