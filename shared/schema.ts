@@ -15,7 +15,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // 1) Bind everything to your schema
-export const dbSchema = pgSchema(process.env.ACADEMY_DB_SCHEMA || "academy_pohuazlicalli");
+export const dbSchema = pgSchema(process.env.ACADEMY_DB_SCHEMA || "cat_admin"); // "academy_pohuazlicalli");
 
 // 2) Enums under that schema
 export const roleEnum = dbSchema.enum("role", [
@@ -40,7 +40,7 @@ export const batchStatusEnum = dbSchema.enum("batch_status", [
 
 // Sessions table (inside academy_pohuazlicalli.sessions)
 export const sessions = dbSchema.table(
-  "sessions",
+  "po_sessions",
   {
     sid: varchar("sid").primaryKey(),
     sess: jsonb("sess").notNull(),
@@ -50,7 +50,7 @@ export const sessions = dbSchema.table(
 );
 
 // Users table
-export const users = dbSchema.table("users", {
+export const users = dbSchema.table("po_users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
@@ -76,7 +76,7 @@ export type Role =
   | "student";
 
 // Signatures table
-export const signatures = dbSchema.table("signatures", {
+export const signatures = dbSchema.table("po_signatures", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   url: text("url").notNull(),
@@ -96,7 +96,7 @@ export type InsertSignature = z.infer<typeof insertSignatureSchema>;
 export type Signature = typeof signatures.$inferSelect;
 
 // Templates table
-export const templates = dbSchema.table("templates", {
+export const templates = dbSchema.table("po_templates", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   url: text("url").notNull(),
@@ -117,7 +117,7 @@ export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
 export type Template = typeof templates.$inferSelect;
 
 // Diploma batches table
-export const diplomaBatches = dbSchema.table("diploma_batches", {
+export const diplomaBatches = dbSchema.table("po_diploma_batches", {
   id: serial("id").primaryKey(),
   fileName: varchar("file_name", { length: 255 }).notNull(),
   status: batchStatusEnum("status").notNull().default("processing"),
@@ -138,7 +138,7 @@ export type InsertDiplomaBatch = z.infer<typeof insertDiplomaBatchSchema>;
 export type DiplomaBatch = typeof diplomaBatches.$inferSelect;
 
 // Configuration table
-export const configuration = dbSchema.table("configuration_diploma", {
+export const configuration = dbSchema.table("po_configuration_diploma", {
   id: serial("id").primaryKey(),
   fieldMappings: jsonb("field_mappings")
     .notNull()

@@ -7,6 +7,7 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from "@aws-sdk/client-secrets-manager";
+import "dotenv/config";
 
 const secretName = process.env.ACADEMY_DB_SECRET_MANAGER;
 const region = process.env.AWS_REGION;
@@ -77,8 +78,19 @@ async function createPool(): Promise<Pool> {
     // ssl: { rejectUnauthorized: false },
   });
 
+  pool.on("connect", (client) => {
+    // @ts-ignore
+    console.log("PG SSL:", client.ssl ? "ON" : "OFF");
+  });
+
   return pool;
 }
+
+// ✅ Export Pool for other modules (e.g., connect-pg-simple)
+export async function getPool(): Promise<Pool> {
+  return createPool();
+}
+
 
 // ✅ Main entry for the rest of your app
 export async function getDb() {

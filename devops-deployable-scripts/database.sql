@@ -2,7 +2,7 @@
 --- -----------------------------------------------------------------------------------------------------------------------
 ---   Creates DB Schema and user
 --- Create user is to create a role --
-CREATE USER app_pohualizcalli WITH PASSWORD 'MyGat0No10enc0nTr4r45p0rqu3N03st4';
+CREATE USER app_pohualizcalli WITH PASSWORD 'newpassword';
 GRANT CONNECT ON DATABASE pohualizcalli TO app_pohualizcalli;
 
 
@@ -43,6 +43,48 @@ GRANT USAGE ON TYPE
   academy_pohuazlicalli.template_status
 TO app_pohualizcalli;
 
+-------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+CREATE USER app_user WITH PASSWORD 'mypassword123';
+CREATE SCHEMA cat_admin AUTHORIZATION postgres;
+
+
+REVOKE ALL ON SCHEMA cat_admin FROM app_pohualizcalli;
+GRANT USAGE ON SCHEMA cat_admin TO app_pohualizcalli;
+GRANT ALL ON SCHEMA cat_admin TO postgres;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA cat_admin TO app_pohualizcalli;
+
+--- despues de creacion de las tablas
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+  cat_admin.configuration_diploma,
+  cat_admin.diploma_batches,
+  cat_admin.sessions,
+  cat_admin.signatures,
+  cat_admin.templates,
+  cat_admin.users
+TO app_pohualizcalli;
+
+----- despues de creacion de las tablas
+--GRANT USAGE, SELECT ON SEQUENCE
+--  cat_admin.configuration_id_seq,
+--  cat_admin.diploma_batches_id_seq,
+--  cat_admin.diploma_batches_total_records_seq,
+--  cat_admin.signatures_id_seq,
+--  cat_admin.templates_id_seq
+--TO app_pohualizcalli;
+
+
+-- 1) Grant USAGE on the enum types
+GRANT USAGE ON TYPE
+  cat_admin.po_role,
+  cat_admin.po_batch_status,
+  cat_admin.po_template_status
+TO app_pohualizcalli;
+
+
 
 -------------------------------------------------------------------------------------------------------------------
 --- recommended:  POSTGRES_HOST_AUTH_METHOD=trust
@@ -77,30 +119,53 @@ SHOW ssl_min_protocol_version;
 SHOW rds.force_ssl;
 
 
+-------------------------------------------------------------------------------------------------------------------
+-- cat_admin.sessions definition
+
+-- Drop table
+
+-- DROP TABLE cat_admin.sessions;
+
+CREATE TABLE IF NOT EXISTS cat_admin.po_sessions (
+  sid varchar NOT NULL PRIMARY KEY,
+  sess json NOT NULL,
+--  sess jsonb NOT NULL,
+  expire timestamp NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_expire
+  ON sessions (expire);
+
+--CREATE INDEX "IDX_session_expire" ON cat_admin.po_sessions USING btree (expire);
+
 
 -------------------------------------------------------------------------------------------------------------------
 
 
--- academy_pohuazlicalli.users definition
+-- cat_admin.users definition
 
 -- Drop table
 
--- DROP TABLE academy_pohuazlicalli.users;
+-- DROP TABLE cat_admin.users;
 
-CREATE TYPE academy_pohuazlicalli.role AS ENUM (
+CREATE TYPE cat_admin.po_role AS ENUM (
   'student',
   'teacher',
   'admin'
 );
 
+ALTER TYPE cat_admin.po_role
+ADD VALUE 'servicios_escolares';
 
-CREATE TABLE academy_pohuazlicalli.users_pohualizcalli (
+
+
+CREATE TABLE cat_admin.po_users (
   id varchar DEFAULT gen_random_uuid() NOT NULL,
   email varchar UNIQUE,
   first_name varchar,
   last_name varchar,
   profile_image_url varchar,
-  "role" academy_pohuazlicalli.role DEFAULT 'student' NOT NULL,
+  "role" cat_admin.po_role DEFAULT 'student' NOT NULL,
   created_at timestamp DEFAULT now(),
   updated_at timestamp DEFAULT now(),
   PRIMARY KEY (id)
@@ -111,13 +176,13 @@ CREATE TABLE academy_pohuazlicalli.users_pohualizcalli (
 
 
 --- -----------------------------------------------------------------------------------------------------------------------
--- academy_pohuazlicalli."configuration" definition
+-- cat_admin."configuration" definition
 
 -- Drop table
 
--- DROP TABLE academy_pohuazlicalli."configuration";
+-- DROP TABLE cat_admin."configuration";
 
-CREATE TABLE academy_pohuazlicalli.configuration_diploma (
+CREATE TABLE cat_admin.po_configuration_diploma (
 --	id serial4 NOT NULL,
 	id int4 GENERATED ALWAYS AS IDENTITY( INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1 NO CYCLE) NOT NULL,
 	field_mappings jsonb NOT NULL,
@@ -128,18 +193,18 @@ CREATE TABLE academy_pohuazlicalli.configuration_diploma (
 );
 
 
--- academy_pohuazlicalli."configuration" foreign keys
+-- cat_admin."configuration" foreign keys
 
-ALTER TABLE academy_pohuazlicalli.configuration_diploma ADD CONSTRAINT configuration_updated_by_users_id_fk FOREIGN KEY (updated_by) REFERENCES academy_pohuazlicalli.users(id);
+ALTER TABLE cat_admin.po_configuration_diploma ADD CONSTRAINT configuration_updated_by_users_id_fk_01 FOREIGN KEY (updated_by) REFERENCES cat_admin.users(email);
 
 
-INSERT INTO academy_pohuazlicalli.configuration_diploma
+INSERT INTO cat_admin.po_configuration_diploma
 (id, field_mappings, updated_by, created_at, updated_at)
 VALUES(nextval('configuration_id_seq'::regclass), '', '', now(), now());
 
 -------------------------------------------------------------------------------------------------------------------
 
-CREATE TYPE academy_pohuazlicalli.batch_status AS ENUM (
+CREATE TYPE cat_admin.po_batch_status AS ENUM (
   'procesando',
   'completado',
   'error',
@@ -147,17 +212,17 @@ CREATE TYPE academy_pohuazlicalli.batch_status AS ENUM (
 );
 
 
--- academy_pohuazlicalli.diploma_batches definition
+-- cat_admin.diploma_batches definition
 
 -- Drop table
 
--- DROP TABLE academy_pohuazlicalli.diploma_batches;
+-- DROP TABLE cat_admin.diploma_batches;
 
-CREATE TABLE academy_pohuazlicalli.diploma_batches (
+CREATE TABLE cat_admin.po_diploma_batches (
 --	id serial4 NOT NULL,
 	id int4 GENERATED ALWAYS AS IDENTITY( INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1 NO CYCLE) NOT NULL,
 	file_name varchar(255) NOT NULL,
-	status academy_pohuazlicalli."batch_status" DEFAULT 'recibido' NOT NULL,
+	status cat_admin."po_batch_status" DEFAULT 'recibido' NOT NULL,
 	total_records serial4 NOT NULL,
 	zip_url text NULL,
 	created_by varchar NULL,
@@ -167,45 +232,26 @@ CREATE TABLE academy_pohuazlicalli.diploma_batches (
 );
 
 
--- academy_pohuazlicalli.diploma_batches foreign keys
+-- cat_admin.diploma_batches foreign keys
 
-ALTER TABLE academy_pohuazlicalli.diploma_batches ADD CONSTRAINT diploma_batches_created_by_users_id_fk FOREIGN KEY (created_by) REFERENCES academy_pohuazlicalli.users(id);
+ALTER TABLE cat_admin.po_diploma_batches ADD CONSTRAINT diploma_batches_created_by_users_id_fk FOREIGN KEY (created_by) REFERENCES cat_admin.users(email);
 
-INSERT INTO academy_pohuazlicalli.diploma_batches
+INSERT INTO cat_admin.po_diploma_batches
 (id, file_name, status, total_records, zip_url, created_by, created_at, updated_at)
 VALUES(nextval('diploma_batches_id_seq'::regclass), '', 'processing'::batch_status, nextval('diploma_batches_total_records_seq'::regclass), '', '', now(), now());
 
--------------------------------------------------------------------------------------------------------------------
 
--- academy_pohuazlicalli.sessions definition
-
--- Drop table
-
--- DROP TABLE academy_pohuazlicalli.sessions;
-
-CREATE TABLE academy_pohuazlicalli.sessions (
-	sid varchar NOT NULL,
-	sess jsonb NOT NULL,
-	expire timestamp NOT NULL,
-	CONSTRAINT sessions_pkey PRIMARY KEY (sid)
-);
-CREATE INDEX "IDX_session_expire" ON academy_pohuazlicalli.sessions USING btree (expire);
-
-
-INSERT INTO academy_pohuazlicalli.sessions
-(sid, sess, expire)
-VALUES('', '', '');
 
 
 -------------------------------------------------------------------------------------------------------------------
 
--- academy_pohuazlicalli.signatures definition
+-- cat_admin.signatures definition
 
 -- Drop table
 
--- DROP TABLE academy_pohuazlicalli.signatures;
+-- DROP TABLE cat_admin.signatures;
 
-CREATE TABLE academy_pohuazlicalli.signatures (
+CREATE TABLE cat_admin.po_signatures (
 --	id serial4 NOT NULL,
 	id int4 GENERATED ALWAYS AS IDENTITY( INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1 NO CYCLE) NOT NULL,
 	"name" varchar(255) NOT NULL,
@@ -218,30 +264,30 @@ CREATE TABLE academy_pohuazlicalli.signatures (
 );
 
 
--- academy_pohuazlicalli.signatures foreign keys
+-- cat_admin.signatures foreign keys
 
-ALTER TABLE academy_pohuazlicalli.signatures ADD CONSTRAINT signatures_created_by_users_id_fk FOREIGN KEY (created_by) REFERENCES academy_pohuazlicalli.users(id);
+ALTER TABLE cat_admin.po_signatures ADD CONSTRAINT signatures_created_by_users_id_fk FOREIGN KEY (created_by) REFERENCES cat_admin.users(email);
 
 
 
 -------------------------------------------------------------------------------------------------------------------
 
-CREATE TYPE academy_pohuazlicalli.template_status AS ENUM (
+CREATE TYPE cat_admin.po_template_status AS ENUM (
   'Active',
   'Inactive'
 );
--- academy_pohuazlicalli.templates definition
+-- cat_admin.templates definition
 
 -- Drop table
 
--- DROP TABLE academy_pohuazlicalli.templates;
+-- DROP TABLE cat_admin.templates;
 
-CREATE TABLE academy_pohuazlicalli.templates (
+CREATE TABLE cat_admin.po_templates (
 --	id serial4 NOT NULL,
     id int4 GENERATED ALWAYS AS IDENTITY( INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1 NO CYCLE) NOT NULL,
 	"name" varchar(255) NOT NULL,
 	url text NOT NULL,
-	status academy_pohuazlicalli."template_status" DEFAULT 'Inactive' NOT NULL,
+	status cat_admin."po_template_status" DEFAULT 'Inactive' NOT NULL,
 	created_by varchar NULL,
 	created_at timestamp DEFAULT now() NULL,
 	updated_at timestamp DEFAULT now() NULL,
@@ -249,9 +295,10 @@ CREATE TABLE academy_pohuazlicalli.templates (
 );
 
 
--- academy_pohuazlicalli.templates foreign keys
+-- cat_admin.templates foreign keys
 
-ALTER TABLE academy_pohuazlicalli.templates ADD CONSTRAINT templates_created_by_users_id_fk FOREIGN KEY (created_by) REFERENCES academy_pohuazlicalli.users(id);
+ALTER TABLE cat_admin.po_templates ADD CONSTRAINT templates_created_by_users_id_fk FOREIGN KEY (created_by) REFERENCES cat_admin.users(email);
+
 
 
 

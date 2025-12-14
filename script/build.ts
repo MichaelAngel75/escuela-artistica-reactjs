@@ -51,6 +51,8 @@ async function buildAll() {
     platform: "node",
     bundle: true,
     format: "cjs",
+    //format: "esm",              // 👈 change here
+    //outfile: "dist/index.mjs",  // 👈 give it an .mjs or adjust main
     outfile: "dist/index.cjs",
     define: {
       "process.env.ACADEMY_NODE_ENV": '"production"',

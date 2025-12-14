@@ -4,16 +4,22 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { getPool } from "./db";
 
-export function getSession() {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+export async function getSession() {
+  console.log(" :: debug :: googleAuth.getSession() : ");
+  const sessionTtl = 24 * 60 * 60;
   const pgStore = connectPg(session);
+  const pool = await getPool();
+
   const sessionStore = new pgStore({
-    conString: process.env.ACADEMY_DATABASE_URL,
+    pool,
     createTableIfMissing: false,
     ttl: sessionTtl,
-    tableName: "sessions",
+    tableName: "po_sessions",
+    schemaName: process.env.DB_SCHEMA
   });
+
   return session({
     secret: process.env.ACADEMY_SESSION_SECRET!,
     store: sessionStore,
@@ -22,14 +28,16 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: process.env.ACADEMY_NODE_ENV === "production",
-      maxAge: sessionTtl,
+      maxAge: sessionTtl * 1000, // cookie maxAge is ms
     },
-  });
+  });  
 }
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
-  app.use(getSession());
+  const sessionMiddleware = await getSession();
+  app.use(sessionMiddleware);
+  // app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
 

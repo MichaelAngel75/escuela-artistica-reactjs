@@ -47,8 +47,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post('/api/signatures', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const data = insertSignatureSchema.parse({ ...req.body, createdBy: userId });
+      const email = req.user.claims.email;
+      const data = insertSignatureSchema.parse({ ...req.body, createdBy: email });
       const signature = await storage.createSignature(data);
       res.json(signature);
     } catch (error) {
@@ -95,8 +95,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post('/api/templates', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const data = insertTemplateSchema.parse({ ...req.body, createdBy: userId });
+      const email = req.user.claims.email;
+      const data = insertTemplateSchema.parse({ ...req.body, createdBy: email });
       const template = await storage.createTemplate(data);
       res.json(template);
     } catch (error) {
@@ -154,7 +154,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post('/api/diploma-batches', isAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const email = req.user.claims.email;
       const file = req.file;
       
       if (!file) {
@@ -172,7 +172,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         fileName: file.originalname,
         totalRecords,
         status: 'processing',
-        createdBy: userId,
+        createdBy: email,
       });
 
       const batch = await storage.createDiplomaBatch(data);
@@ -220,8 +220,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put('/api/configuration', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const data = insertConfigurationSchema.parse({ ...req.body, updatedBy: userId });
+      console.log(" api/configuration PUT  req: ", req);
+      const email = req.user.claims.email;
+      const data = insertConfigurationSchema.parse({ ...req.body, updatedBy: email });
       const config = await storage.upsertConfiguration(data);
       res.json(config);
     } catch (error) {
