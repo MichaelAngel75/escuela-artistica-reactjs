@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Save, RotateCcw } from "lucide-react";
+import { apiFetchJson } from "@/lib/apiFetch";
 
 interface FieldConfig {
   id: string;
@@ -90,29 +91,29 @@ export default function ConfigurationPage() {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        const res = await fetch("/api/configuration", {
-          credentials: "include", // send session cookie
-        });
-
-        if (!res.ok) {
-          throw new Error(`Failed to load configuration: ${res.status}`);
-        }
-
-        const data = (await res.json()) as ApiConfiguration | null;
-        const mapped = mapFromApi(data);
-        setFields(mapped);
-      } catch (error) {
-        console.error("Error loading configuration:", error);
-        setFields(DEFAULT_FIELDS);
+        const data = await apiFetchJson<ApiConfiguration | null>(
+          "/api/configuration",
+        );
+    
+        setFields(mapFromApi(data));
+    
         toast({
-          title: "Error loading configuration",
-          description: "Using default layout values.",
-          variant: "destructive",
+          title: "Configuration loaded",
+          description: "Using saved diploma layout.",
+          variant: "success", // 🟢
+        });
+      } catch (error) {
+        console.error(error);
+    
+        toast({
+          title: "Failed to load configuration",
+          description: "Using default layout instead.",
+          variant: "destructive", // 🔴
         });
       } finally {
         setLoading(false);
-      }
-    };
+      }      
+    };    
 
     loadConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,32 +131,24 @@ export default function ConfigurationPage() {
   const handleSave = async () => {
     try {
       setSaving(true);
+      
       const fieldMappings = mapToApi(fields);
-
-      const res = await fetch("/api/configuration", {
+      await apiFetchJson("/api/configuration", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fieldMappings }),
       });
-
-      if (!res.ok) {
-        throw new Error(`Failed to save configuration: ${res.status}`);
-      }
-
+  
       toast({
-        title: "Configuration Saved",
-        description: "Diploma layout positions updated.",
-        variant: "success",
+        title: "Saved successfully",
+        description: "Diploma configuration updated.",
+        variant: "success", // 🟢
       });
     } catch (error) {
-      console.error("Error saving configuration:", error);
       toast({
-        title: "Error saving configuration",
+        title: "Save failed",
         description: "Please try again.",
-        variant: "destructive",
+        variant: "destructive", // 🔴
       });
     } finally {
       setSaving(false);

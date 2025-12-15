@@ -128,7 +128,9 @@ export default function TemplatesPage() {
 
   const activateMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiJson(`/api/templates/${id}/activate`, { method: "POST" });
+      return apiJson(`/api/templates/${id}/activate`, { 
+        method: "POST",
+        credentials: "include" });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["templates"] });
@@ -138,7 +140,9 @@ export default function TemplatesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiJson(`/api/templates/${id}`, { method: "DELETE" });
+      return apiJson(`/api/templates/${id}`, { 
+        method: "DELETE",
+        credentials: "include" });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["templates"] });

@@ -13,21 +13,8 @@ import ConfigurationPage from "@/pages/configuration";
 import NotFound from "@/pages/not-found";
 import { useAppStore } from "@/lib/store";
 import { useAuth } from "./hooks/useAuth";
+import { AppBootstrap } from "./pages/AppBootstrap";
 
-// function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
-//   const { user } = useAppStore();
-//   const [, setLocation] = useLocation();
-
-//   if (!user) {
-//     return <LoginPage />;
-//   }
-
-//   return (
-//     <DashboardLayout>
-//       <Component />
-//     </DashboardLayout>
-//   );
-// }
 
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
@@ -84,6 +71,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <AppBootstrap />
       <Router />
       <Toaster />
     </QueryClientProvider>

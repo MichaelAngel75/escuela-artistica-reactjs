@@ -11,6 +11,7 @@ export async function getSession() {
   const sessionTtl = 24 * 60 * 60;
   const pgStore = connectPg(session);
   const pool = await getPool();
+  const isProd = process.env.ACADEMY_NODE_ENV === "production";
 
   const sessionStore = new pgStore({
     pool,
@@ -25,11 +26,12 @@ export async function getSession() {
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    proxy: isProd,           // important behind ALB/CloudFront
     cookie: {
       httpOnly: true,
-      secure: "auto",      // <- key change
-      sameSite: "lax",     // good default for OAuth redirects
-      maxAge: sessionTtl,  // (milliseconds) keep consistent
+      secure: isProd,          // must be true on HTTPS,
+      sameSite: isProd? "none": "lax",     // good default for OAuth redirects: "lax"
+      maxAge: sessionTtl * 1000,  // (milliseconds) keep consistent
     },    
   });  
 }
