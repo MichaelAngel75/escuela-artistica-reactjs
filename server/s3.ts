@@ -197,6 +197,21 @@ export function buildTemplateKey(originalFilename: string) {
   return `${root_path}/empty-templates/${yyyy}-${mm}-${dd}/${HH}-${MM}-${SS}/${fileName}`;
 }
 
+export function buildSignatureKey(originalFilename: string) {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  // const HH = String(now.getHours()).padStart(2, "0");
+  // const MM = String(now.getMinutes()).padStart(2, "0");
+  // const SS = String(now.getSeconds()).padStart(2, "0");
+
+  const safeName = originalFilename.replace(/[^\w.\-]+/g, "_");
+  // return `${root_path}/signatures/${yyyy}-${mm}-${dd}/${HH}-${MM}-${SS}/${safeName}`;
+  return `${root_path}/signatures/${yyyy}-${mm}-${dd}/${safeName}`;
+}
+
+
 export function extractParentPrefixFromUrl(input: string): string | null {
   if (!input) return null;
 

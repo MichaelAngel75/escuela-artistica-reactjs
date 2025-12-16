@@ -1,135 +1,291 @@
-import { useAppStore, Signature } from "@/lib/store";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import { Plus, RefreshCw, Search, Trash2, Download, FileImage } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus, Search, Trash2, Download, FileImage } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { PaginationControls } from "@/components/shared/PaginationControls";
 import { DeleteConfirmDialog } from "@/components/shared/DeleteConfirmDialog";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+
+type DbSignature = {
+  id: number | string;
+  name: string;
+  professorName: string;
+  url: string; // CloudFront URL to image
+  createdAt?: string | Date | null;
+  updatedAt?: string | Date | null;
+};
+
+function toDateString(v: any) {
+  if (!v) return "";
+  const d = typeof v === "string" ? new Date(v) : v;
+  if (d instanceof Date && !Number.isNaN(d.getTime())) return d.toLocaleString();
+  return String(v);
+}
+
+async function apiJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, { credentials: "include", ...init });
+  if (res.status === 401) {
+    // Optional: hard redirect on auth loss
+    // window.location.href = "/login";
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
 
 export default function SignaturesPage() {
-  const { signatures, addSignature, deleteSignature } = useAppStore();
   const { toast } = useToast();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Pagination State
+  const [editingSignature, setEditingSignature] = useState<DbSignature | null>(null);
+
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
-  const handleDelete = (id: string) => {
-    deleteSignature(id);
-    toast({ title: "Signature Deleted", description: "The signature has been removed.", variant: "success" });
-  };
+  const signaturesQuery = useQuery<DbSignature[]>({
+    queryKey: ["signatures"],
+    queryFn: () => apiJson<DbSignature[]>("/api/signatures"),
+    staleTime: 0,
+  });
 
-  const filteredSignatures = signatures.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.professorName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const signatures = signaturesQuery.data ?? [];
 
-  // Pagination Logic
-  const totalPages = Math.ceil(filteredSignatures.length / itemsPerPage);
-  const paginatedSignatures = filteredSignatures.slice(
+  const filtered = useMemo(() => {
+    const s = searchTerm.trim().toLowerCase();
+    if (!s) return signatures;
+    return signatures.filter((x) =>
+      x.name.toLowerCase().includes(s) ||
+      x.professorName.toLowerCase().includes(s)
+    );
+  }, [signatures, searchTerm]);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginated = filtered.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-  const handleRowClick = (sig: Signature) => {
-      // Pre-fill would ideally go here if we had an edit endpoint/mode.
-      // For now, just opening the dialog as "Add New" since editing mock data wasn't fully specified beyond "allow editing".
-      // Let's populate the form if we want to support editing, but for MVP we'll just show the dialog.
-      // Actually, let's implement a quick mock edit mode like Templates.
-      // For now, to satisfy "allow editing when clicking", we open the dialog.
-      setEditingSignature(sig);
-      setIsDialogOpen(true);
+  // ---- Mutations ----
+
+  // Create signature (metadata + file) -> new endpoint
+  const createMutation = useMutation({
+    mutationFn: async (payload: { name: string; professorName: string; file: File }) => {
+      const fd = new FormData();
+      fd.append("name", payload.name);
+      fd.append("professorName", payload.professorName);
+      fd.append("file", payload.file);
+
+      const res = await fetch("/api/signatures/file", {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message || "Failed to create signature");
+      }
+      return res.json();
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["signatures"] });
+      toast({ title: "Signature Uploaded", description: "Signature stored in S3 and DB.", variant: "success" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to upload signature", variant: "destructive" });
+    },
+  });
+
+  // Update signature metadata (name/professorName) -> existing PATCH
+  const updateMetaMutation = useMutation({
+    mutationFn: async (payload: { id: number; name?: string; professorName?: string; file?: File }) => {
+        const fd = new FormData();
+        if (payload.name !== undefined) fd.append("name", payload.name);
+        if (payload.professorName !== undefined) fd.append("professorName", payload.professorName);
+        if (payload.file) fd.append("file", payload.file);
+  
+        const res = await fetch(`/api/signatures/${payload.id}`, {
+          method: "PATCH",
+          credentials: "include",
+          body: fd,
+        });
+  
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.message || "Failed to update Signature");
+        }
+        return res.json();
+    },    
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["signatures"] });
+      toast({ title: "Signature Updated", description: "Signature details updated.", variant: "success" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to update signature", variant: "destructive" });
+    },
+  });
+
+  // Replace image file -> new endpoint (backend should delete old S3 image)
+//   const replaceFileMutation = useMutation({
+//     mutationFn: async (payload: { id: string | number; file: File }) => {
+//       const fd = new FormData();
+//       fd.append("file", payload.file);
+
+//       const res = await fetch(`/api/signatures/${payload.id}/file`, {
+//         method: "PATCH",
+//         credentials: "include",
+//         body: fd,
+//       });
+
+//       if (!res.ok) {
+//         const body = await res.json().catch(() => ({}));
+//         throw new Error(body?.message || "Failed to replace signature image");
+//       }
+//       return res.json();
+//     },
+//     onSuccess: async () => {
+//       await queryClient.invalidateQueries({ queryKey: ["signatures"] });
+//       toast({ title: "Signature Image Replaced", description: "Old image removed from S3 and DB updated.", variant: "success" });
+//     },
+//     onError: (err: any) => {
+//       toast({ title: "Error", description: err?.message || "Failed to replace image", variant: "destructive" });
+//     },
+//   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string | number) => {
+      return apiJson(`/api/signatures/${id}`, { method: "DELETE" });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["signatures"] });
+      toast({ title: "Signature Deleted", description: "Removed from S3 and DB.", variant: "success" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to delete signature", variant: "destructive" });
+    },
+  });
+
+  // ---- UI Handlers ----
+
+  const handleRowClick = (sig: DbSignature) => {
+    setEditingSignature(sig);
+    setIsDialogOpen(true);
   };
 
-  const [editingSignature, setEditingSignature] = useState<Signature | null>(null);
-
   const AddEditSignatureForm = () => {
-    const { register, handleSubmit, reset } = useForm({
-        defaultValues: editingSignature ? { 
-            name: editingSignature.name, 
-            professorName: editingSignature.professorName 
-        } : {}
+    const { register, handleSubmit, reset, setValue, watch } = useForm<{
+      name: string;
+      professorName: string;
+      file?: FileList;
+    }>({
+      defaultValues: editingSignature
+        ? { name: editingSignature.name, professorName: editingSignature.professorName }
+        : { name: "", professorName: "" },
     });
-    
-    const onSubmit = (data: any) => {
-        try {
-            // Mock file upload - normally would upload to S3 here
-            const mockUrl = "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/John_Hancock_Signature.svg/1200px-John_Hancock_Signature.svg.png";
-            
-            if (editingSignature) {
-                 // Need to add updateSignature to store or just add new for mock
-                 // I'll just simulate success since I didn't add updateSignature to store in previous step for Signatures (only Templates)
-                 // Wait, I should check if I added it. I added updateSignature to store in Step 1.
-                 // Yes, updateSignature is in the new store code.
-                 useAppStore.getState().updateSignature(editingSignature.id, {
-                     name: data.name.toLowerCase(),
-                     professorName: data.professorName
-                 });
-                 toast({ title: "Signature Updated", description: "Changes saved.", variant: "success" });
-            } else {
-                addSignature({
-                    name: data.name.toLowerCase(), 
-                    professorName: data.professorName,
-                    url: mockUrl
-                });
-                toast({ title: "Success", description: "New signature uploaded successfully.", variant: "success" });
-            }
-            
-            reset();
-            setIsDialogOpen(false);
-            setEditingSignature(null);
-        } catch (error) {
-            toast({
-                title: "Error",
-                description: "Operation failed.",
-                variant: "destructive"
+
+    const onSubmit = async (data: { name: string; professorName: string; file?: FileList }) => {
+      const name = data.name.trim();
+      const professorName = data.professorName.trim();
+      const file = data.file?.[0];
+
+      try {
+        if (!name) throw new Error("Signature name is required");
+        if (!professorName) throw new Error("Professor/Owner name is required");
+
+        if (!editingSignature) {
+          if (!file) throw new Error("Image file is required");
+          if (!file.type.startsWith("image/")) throw new Error("Only image files are allowed");
+          await createMutation.mutateAsync({ name: name.toLowerCase(), professorName, file });
+        } else {
+            await updateMetaMutation.mutateAsync({
+                id: editingSignature.id,
+                name: name.toLowerCase(),
+                professorName,
+                file
             });
+        //   // update metadata (always)
+        //   await updateMetaMutation.mutateAsync({
+        //     id: editingSignature.id,
+        //     name: name.toLowerCase(),
+        //     professorName,
+        //   });
+
+        //   // replace image (optional)
+        //   if (file) {
+        //     if (!file.type.startsWith("image/")) throw new Error("Only image files are allowed");
+        //     await replaceFileMutation.mutateAsync({ id: editingSignature.id, file });
+        //   }
         }
+
+        reset();
+        setValue("file", undefined);
+        setEditingSignature(null);
+        setIsDialogOpen(false);
+      } catch (err: any) {
+        toast({ title: "Error", description: err?.message || "Operation failed", variant: "destructive" });
+      }
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-                <label className="text-sm font-medium">Signature Name (Internal)</label>
-                <Input {...register("name", { required: true })} placeholder="e.g. director_sig" />
-                <p className="text-xs text-muted-foreground mt-1">Will be saved as lowercase</p>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div>
+          <label className="text-sm font-medium">Signature Name (Internal)</label>
+          <Input {...register("name", { required: true })} placeholder="e.g. director_sig" />
+          <p className="text-xs text-muted-foreground mt-1">Will be saved as lowercase</p>
+        </div>
+        <div>
+          <label className="text-sm font-medium">Professor/Owner Name</label>
+          <Input {...register("professorName", { required: true })} placeholder="e.g. Dr. Jane Doe" />
+        </div>
+        <div>
+          <label className="text-sm font-medium">
+            {editingSignature ? "Replace Image (optional)" : "Image File (required)"}
+          </label>
+          <Input type="file" accept="image/*" className="cursor-pointer" {...register("file")} />
+        </div>
+
+        {editingSignature?.url && (
+          <div className="bg-muted/30 p-3 rounded border flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <FileImage className="w-4 h-4" />
+              <span>Current Signature File</span>
             </div>
-            <div>
-                <label className="text-sm font-medium">Professor/Owner Name</label>
-                <Input {...register("professorName", { required: true })} placeholder="e.g. Dr. Jane Doe" />
-            </div>
-            {editingSignature && (
-                <div className="bg-muted/30 p-3 rounded border flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <FileImage className="w-4 h-4" />
-                        <span>Current Signature File</span>
-                    </div>
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-2 h-8"
-                        type="button"
-                        onClick={() => window.open(editingSignature.url, '_blank')}
-                    >
-                        <Download className="w-3 h-3" /> Download
-                    </Button>
-                </div>
-            )}
-            {!editingSignature && (
-                <div>
-                    <label className="text-sm font-medium">Image File (PNG/JPG)</label>
-                    <Input type="file" accept="image/*" className="cursor-pointer" />
-                </div>
-            )}
-            <Button type="submit" className="w-full">{editingSignature ? 'Update Signature' : 'Upload Signature'}</Button>
-        </form>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 h-8"
+              type="button"
+              onClick={() => window.open(editingSignature.url, "_blank")}
+            >
+              <Download className="w-3 h-3" /> Open
+            </Button>
+          </div>
+        )}
+
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={
+            createMutation.isPending ||
+            updateMetaMutation.isPending 
+            //  || replaceFileMutation.isPending
+          }
+        >
+          {editingSignature ? "Save Changes" : "Upload Signature"}
+        </Button>
+      </form>
     );
   };
 
@@ -140,105 +296,127 @@ export default function SignaturesPage() {
           <h1 className="text-2xl font-serif font-bold text-primary">Signatures</h1>
           <p className="text-muted-foreground">Manage digital signatures for diplomas</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingSignature(null); }}>
-            <DialogTrigger asChild>
-                <Button className="gap-2">
-                    <Plus className="w-4 h-4" /> Upload New
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{editingSignature ? 'Edit Signature' : 'Upload Signature'}</DialogTitle>
-                </DialogHeader>
-                <AddEditSignatureForm />
-            </DialogContent>
+
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) setEditingSignature(null);
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="w-4 h-4" /> Upload New
+            </Button>
+          </DialogTrigger>
+
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingSignature ? "Edit Signature" : "Upload Signature"}</DialogTitle>
+            </DialogHeader>
+            <AddEditSignatureForm />
+          </DialogContent>
         </Dialog>
       </div>
 
       <Card>
         <CardHeader className="pb-3">
-            <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-md w-full md:w-80">
-                <Search className="w-4 h-4 text-muted-foreground" />
-                <input 
-                    className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground" 
-                    placeholder="Search by name..." 
-                    value={searchTerm}
-                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                />
-            </div>
+          <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-md w-full md:w-80">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <input
+              className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground"
+              placeholder="Search by name or professor..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
         </CardHeader>
-        <CardContent className="p-0">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead className="pl-6">Preview</TableHead>
-                        <TableHead>Signature Name</TableHead>
-                        <TableHead>Professor</TableHead>
-                        <TableHead>Created At</TableHead>
-                        <TableHead className="text-right pr-6">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {paginatedSignatures.map((sig) => (
-                        <TableRow 
-                            key={sig.id}
-                            className="cursor-pointer hover:bg-muted/50 transition-colors"
-                            onClick={() => handleRowClick(sig)}
-                        >
-                            <TableCell className="pl-6">
-                                <div className="h-10 w-24 bg-white rounded border border-border p-1 flex items-center justify-center overflow-hidden">
-                                    <img src={sig.url} alt={sig.name} className="max-h-full max-w-full object-contain" />
-                                </div>
-                            </TableCell>
-                            <TableCell className="font-medium font-mono text-xs">{sig.name}</TableCell>
-                            <TableCell>{sig.professorName}</TableCell>
-                            <TableCell>{sig.createdAt}</TableCell>
-                            <TableCell className="text-right pr-6">
-                                <div className="flex items-center justify-end gap-2">
-                                    <Button variant="ghost" size="icon" title="Replace" onClick={(e) => e.stopPropagation()}>
-                                        <RefreshCw className="w-4 h-4 text-muted-foreground" />
-                                    </Button>
-                                    <div onClick={(e) => e.stopPropagation()}>
-                                    <DeleteConfirmDialog 
-                                        onConfirm={() => handleDelete(sig.id)} 
-                                        trigger={
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        }
-                                        title="Delete Signature"
-                                        description={`Are you sure you want to delete the signature for "${sig.professorName}"? This cannot be undone.`}
-                                    />
-                                    </div>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ))}
 
-                    {paginatedSignatures.length === 0 && (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                No signatures found matching your search.
-                            </TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-            </Table>
-            
-            {filteredSignatures.length > 0 && (
-                <PaginationControls 
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                    itemsPerPage={itemsPerPage}
-                    onItemsPerPageChange={setItemsPerPage}
-                    totalRecords={filteredSignatures.length}
-                />
-            )}
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-6">Preview</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Professor</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead className="text-right pr-6">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {paginated.map((sig) => (
+                <TableRow
+                  key={String(sig.id)}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleRowClick(sig)}
+                >
+                  <TableCell className="pl-6">
+                    <div className="h-10 w-24 bg-white rounded border border-border p-1 flex items-center justify-center overflow-hidden">
+                      <img src={sig.url} alt={sig.name} className="max-h-full max-w-full object-contain" />
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="font-medium font-mono text-xs">{sig.name}</TableCell>
+
+                  <TableCell>{sig.professorName}</TableCell>
+
+                  <TableCell>{toDateString(sig.updatedAt ?? sig.createdAt)}</TableCell>
+
+                  <TableCell className="text-right pr-6">
+                    <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Open"
+                        onClick={() => window.open(sig.url, "_blank")}
+                      >
+                        <Download className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+
+                      <DeleteConfirmDialog
+                        onConfirm={() => deleteMutation.mutate(sig.id)}
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        }
+                        title="Delete Signature"
+                        description={`Are you sure you want to delete "${sig.name}"? This removes it from S3 and Postgres.`}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+
+              {paginated.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    {signaturesQuery.isLoading ? "Loading..." : "No signatures found."}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+
+          {filtered.length > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={setItemsPerPage}
+              totalRecords={filtered.length}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

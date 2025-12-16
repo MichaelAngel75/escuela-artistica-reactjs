@@ -128,10 +128,6 @@ export class DatabaseStorage implements IStorage {
   
     if (!signature) return;
   
-    if (signature.url) {
-      await this.objectStorage.deleteObjectByRawPath(signature.url);
-    }
-  
     await db.delete(signatures).where(eq(signatures.id, id));
   }
   
@@ -191,81 +187,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(templates).where(eq(templates.id, id));
   }
 
-
-
-
-  // async getTemplates(): Promise<Template[]> {
-  //   const db = await getDb();
-  //   return await db.select().from(templates).orderBy(desc(templates.createdAt));
-  // }
-  
-  // async getTemplate(id: number): Promise<Template | undefined> {
-  //   const db = await getDb();
-  //   const [template] = await db.select().from(templates).where(eq(templates.id, id));
-  //   return template;
-  // }
-  
-  // async getActiveTemplate(): Promise<Template | undefined> {
-  //   const db = await getDb();
-  //   const [template] = await db.select().from(templates).where(eq(templates.status, 'active'));
-  //   return template;
-  // }
-  
-  // async createTemplate(templateData: InsertTemplate): Promise<Template> {
-  //   const db = await getDb();
-  //   const [template] = await db.insert(templates).values(templateData).returning();
-  //   return template;
-  // }
-  
-  // async updateTemplate(id: number, templateData: Partial<InsertTemplate>): Promise<Template | undefined> {
-  //   const db = await getDb();
-  //   const [template] = await db
-  //     .update(templates)
-  //     .set({ ...templateData, updatedAt: new Date() })
-  //     .where(eq(templates.id, id))
-  //     .returning();
-  //   return template;
-  // }
-  
-  // async setTemplateActive(id: number): Promise<void> {
-  //   const db = await getDb();
-  //   // Deactivate all templates first
-  //   await db.update(templates).set({ status: 'inactive' });
-  //   // Activate the selected template
-  //   await db.update(templates).set({ status: 'active' }).where(eq(templates.id, id));
-  // }
-  
-  // objectStorage = new ObjectStorageService();
-
-  // // export async function deleteTemplate(id: number): Promise<void> {
-
-  // async deleteTemplate(id: number): Promise<void> {
-  //   const db = await getDb();
-
-  //   // 1) Load template first to get the URL
-  //   const [template] = await db
-  //                         .select()
-  //                         .from(templates)
-  //                         .where(eq(templates.id, id));
-
-  //   if (!template) {
-  //     // nothing to delete
-  //     return;
-  //   }                          
-
-  //   // 2) Delete file from GCS (if URL present)
-  //   if (template.url) {
-  //     try {
-  //       await this.objectStorage.deleteObjectByRawPath(template.url);
-  //     } catch (err) {
-  //       console.error("Error deleting template file from storage:", err);
-  //       // Optional: decide if you want to still delete DB row or abort
-  //       // For now, let's continue and still delete from DB
-  //     }
-  //   }
-
-  //   await db.delete(templates).where(eq(templates.id, id));
-  // }
   
   // ___________________________________________________________________________________
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

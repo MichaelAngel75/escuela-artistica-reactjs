@@ -15,7 +15,7 @@ import {
 } from "@shared/schema";
 
 import multer from "multer";
-import { buildTemplateKey, deleteFolderFromS3, deleteImageFromS3, extractParentPrefixFromUrl, uploadResourceToS3 } from "./s3";
+import { buildSignatureKey, buildTemplateKey, deleteFolderFromS3, deleteImageFromS3, extractParentPrefixFromUrl, uploadResourceToS3 } from "./s3";
 
 const uploadPdf = multer({
   storage: multer.memoryStorage(),
@@ -47,6 +47,84 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   // -----------------------------------------------------------------------------------
   // ======= Signature Routes =======
+  // same multer you already have:
+  const uploadImage = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  });
+
+  // Create signature WITH file
+  app.post("/api/signatures/file", isAuthenticated, uploadImage.single("file"), async (req: any, res) => {
+    try {
+      const email = req.user.claims.email;
+      const name = String(req.body?.name ?? "").trim();
+      const professorName = String(req.body?.professorName ?? "").trim();
+      const file = req.file as Express.Multer.File | undefined;
+
+      if (!name) return res.status(400).json({ message: "name is required" });
+      if (!professorName) return res.status(400).json({ message: "professorName is required" });
+      if (!file) return res.status(400).json({ message: "file is required" });
+      if (!file.mimetype.startsWith("image/")) return res.status(400).json({ message: "Only image files are allowed" });
+
+      const key = buildSignatureKey(file.originalname); // add in s3.ts
+      const url = await uploadResourceToS3(file, key);
+
+      const created = await storage.createSignature({
+        name: name.toLowerCase(),
+        professorName,
+        url,
+        createdBy: email,
+      });
+
+      return res.json(created);
+    } catch (e) {
+      console.error("Error creating signature:", e);
+      return res.status(400).json({ message: "Failed to create signature" });
+    }
+  });
+
+  // Replace signature image (delete old from S3, upload new, update DB)
+  app.patch("/api/signatures/:id", isAuthenticated, uploadImage.single("file"), async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid id" });
+
+      const existing = await storage.getSignature(id);
+      if (!existing) return res.status(404).json({ message: "Signature not found" });
+
+      const name = typeof req.body?.name === "string" ? req.body.name.trim() : undefined;
+      const professorName = typeof req.body?.professorName === "string" ? req.body.professorName.trim() : undefined;
+      const file = req.file as Express.Multer.File | undefined;
+
+      if (!name && !file && !professorName) return res.status(400).json({ message: "No changes provided" });
+      if (!file) return res.status(400).json({ message: "file is required" });
+      if (!file.mimetype.startsWith("image/")) return res.status(400).json({ message: "Only image files are allowed" });
+
+      // 1) Upload new
+      const key = buildSignatureKey(file.originalname);
+      const newUrl = await uploadResourceToS3(file, key);
+
+      // 2) Update DB
+      const updated = await storage.updateSignature(id, 
+        { url: newUrl, professorName: professorName, name: name});
+        // const updated = await storage.updateTemplate(id, {
+        //   ...(name ? { name } : {}),
+        //   ...(newUrl ? { url: newUrl } : {}),
+        // });        
+
+      // 3) Best-effort delete old
+      if (existing.url && existing.url !== newUrl) {
+        console.log(" :: debug 10 :: " );
+        deleteImageFromS3(existing.url).catch((err) => console.error("Failed deleting old signature:", err));
+      }
+
+      return res.json(updated);
+    } catch (e) {
+      console.error("Error replacing signature image:", e);
+      return res.status(400).json({ message: "Failed to replace signature image" });
+    }
+  });
+
   app.get('/api/signatures', isAuthenticated, async (req, res) => {
     try {
       const signatures = await storage.getSignatures();
@@ -57,35 +135,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post('/api/signatures', isAuthenticated, async (req: any, res) => {
-    try {
-      const email = req.user.claims.email;
-      const data = insertSignatureSchema.parse({ ...req.body, createdBy: email });
-      const signature = await storage.createSignature(data);
-      res.json(signature);
-    } catch (error) {
-      console.error("Error creating signature:", error);
-      res.status(400).json({ message: "Failed to create signature" });
-    }
-  });
-
-  app.patch('/api/signatures/:id', isAuthenticated, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const signature = await storage.updateSignature(id, req.body);
-      if (!signature) {
-        return res.status(404).json({ message: "Signature not found" });
-      }
-      res.json(signature);
-    } catch (error) {
-      console.error("Error updating signature:", error);
-      res.status(400).json({ message: "Failed to update signature" });
-    }
-  });
-
   app.delete('/api/signatures/:id', isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const signature = await storage.getSignature(id);
+
+      if (signature.url) {
+        deleteImageFromS3(signature.url).catch((err) => console.error("Failed deleting old signature:", err));
+      }
+
       await storage.deleteSignature(id);
       res.json({ success: true });
     } catch (error) {
@@ -379,34 +437,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const objectStorageService = new ObjectStorageService();
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     res.json({ uploadURL });
-  });
-
-  // ___________________________________________________________________________________
-  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  // -----------------------------------------------------------------------------------
-  // Endpoint for setting ACL after upload (signatures)
-  app.put("/api/signatures/upload", isAuthenticated, async (req: any, res) => {
-    if (!req.body.url) {
-      return res.status(400).json({ error: "url is required" });
-    }
-
-    const email = req.user?.claims?.email;
-
-    try {
-      const objectStorageService = new ObjectStorageService();
-      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
-        req.body.url,
-        {
-          owner: email,
-          visibility: "public", // Signatures are public for viewing on diplomas
-        },
-      );
-
-      res.status(200).json({ objectPath });
-    } catch (error) {
-      console.error("Error setting signature ACL:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
   });
 
   // ___________________________________________________________________________________

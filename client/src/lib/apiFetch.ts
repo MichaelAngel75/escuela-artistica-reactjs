@@ -19,7 +19,7 @@ export async function apiFetch(
     onUnauthorized();
   }
 
-  return res;
+  return res; 
 }
 
 export async function apiFetchJson<T>(

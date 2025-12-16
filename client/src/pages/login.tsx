@@ -40,7 +40,7 @@ export default function LoginPage() {
           <div className="space-y-2">
             <CardTitle className="text-3xl font-serif text-primary">Poluazticali</CardTitle>
             <CardDescription className="text-base">
-              Academic Certification Platform
+              Generacion de Diplomas
             </CardDescription>
           </div>
         </CardHeader>

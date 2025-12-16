@@ -11,6 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { PaginationControls } from "@/components/shared/PaginationControls";
 
+// --------------------------------------------------------
+// ------- Examples of CSV file -------------
+// Estudiante,Taller,Fecha,Profesor
+// Karen Aguilar Salazar,Edición fotográfica y líneas editoriales ,noviembre de 2024,Fernando Villa
+// Edwin Arturo Casas Rueda,Edición fotográfica y líneas editoriales ,noviembre de 2024,Fernando Villa
+// Nelson Cruz Trejo,Edición fotográfica y líneas editoriales ,noviembre de 2024,Fernando Villa
+
 interface ProcessedRecord {
     firstName: string;
     lastName: string;
