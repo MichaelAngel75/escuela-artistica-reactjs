@@ -149,7 +149,7 @@ export default function DashboardLayout({ children }: Props) {
             >
               <div className="flex items-center gap-3">
                 <GraduationCap className="w-4 h-4" />
-                Generate Diplomas
+                Generacion Diploma
               </div>
               {isGenerateOpen ? (
                 <ChevronDown className="w-3 h-3" />
@@ -164,28 +164,28 @@ export default function DashboardLayout({ children }: Props) {
                 active={location === "/configuration"}
                 onClose={onClose}
                 icon={Settings}
-                label="Configuration"
+                label="Configuracion"
               />
               <SubNavButton
                 href="/templates"
                 active={location === "/templates"}
                 onClose={onClose}
                 icon={FileBadge}
-                label="Templates"
+                label="Diseños"
               />
               <SubNavButton
                 href="/signatures"
                 active={location === "/signatures"}
                 onClose={onClose}
                 icon={FileSignature}
-                label="Signatures"
+                label="Firmas"
               />
               <SubNavButton
                 href="/generate"
                 active={location === "/generate"}
                 onClose={onClose}
                 icon={Cpu}
-                label="Generate"
+                label="Generar Diplomas"
               />
             </CollapsibleContent>
           </Collapsible>

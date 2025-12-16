@@ -149,11 +149,11 @@ export default function GeneratePage() {
         <div className="space-y-6">
              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-serif font-bold text-primary">Diploma Batches</h1>
-                    <p className="text-muted-foreground">History of generated certificates</p>
+                    <h1 className="text-2xl font-serif font-bold text-primary">Diploma Generados</h1>
+                    <p className="text-muted-foreground">Historico de Diplomas Generados</p>
                 </div>
                 <Button onClick={() => setView('upload')} className="gap-2">
-                    <FileUp className="w-4 h-4" /> New Batch
+                    <FileUp className="w-4 h-4" /> Nuevo Proceso
                 </Button>
             </div>
 
@@ -163,7 +163,7 @@ export default function GeneratePage() {
                         <Search className="w-4 h-4 text-muted-foreground" />
                         <input 
                             className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground" 
-                            placeholder="Search by filename..." 
+                            placeholder="Buscar por Csv..." 
                             value={searchTerm}
                             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                         />
@@ -173,11 +173,11 @@ export default function GeneratePage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="pl-6">File Name</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Records</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right pr-6">Download</TableHead>
+                                <TableHead className="pl-6">Nombre de Archivo</TableHead>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead>Conteo</TableHead>
+                                <TableHead>Estado</TableHead>
+                                <TableHead className="text-right pr-6">Descargar</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

@@ -32,7 +32,7 @@ export function PaginationControls({
     <div className="flex flex-col sm:flex-row items-center justify-between px-2 py-4 gap-4">
       <div className="flex items-center gap-4 text-sm text-muted-foreground w-full sm:w-auto justify-between sm:justify-start">
         <div className="flex items-center gap-2">
-            <span>Rows per page</span>
+            <span>Renglones X Pagina</span>
             <Select
             value={String(itemsPerPage)}
             onValueChange={(value) => {
@@ -53,7 +53,7 @@ export function PaginationControls({
             </Select>
         </div>
         <span className="hidden sm:inline">
-            Total {totalRecords} records
+            Total {totalRecords} registros
         </span>
       </div>
 

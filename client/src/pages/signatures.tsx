@@ -283,7 +283,7 @@ export default function SignaturesPage() {
             //  || replaceFileMutation.isPending
           }
         >
-          {editingSignature ? "Save Changes" : "Upload Signature"}
+          {editingSignature ? "Guardar" : "Cargar Firma"}
         </Button>
       </form>
     );
@@ -293,8 +293,8 @@ export default function SignaturesPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-serif font-bold text-primary">Signatures</h1>
-          <p className="text-muted-foreground">Manage digital signatures for diplomas</p>
+          <h1 className="text-2xl font-serif font-bold text-primary">Firmas</h1>
+          <p className="text-muted-foreground">Gestionar firmas digitales para diplomas</p>
         </div>
 
         <Dialog
@@ -306,13 +306,13 @@ export default function SignaturesPage() {
         >
           <DialogTrigger asChild>
             <Button className="gap-2">
-              <Plus className="w-4 h-4" /> Upload New
+              <Plus className="w-4 h-4" /> Cargar Nuevo
             </Button>
           </DialogTrigger>
 
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingSignature ? "Edit Signature" : "Upload Signature"}</DialogTitle>
+              <DialogTitle>{editingSignature ? "Editar Firma" : "Cargar Firma"}</DialogTitle>
             </DialogHeader>
             <AddEditSignatureForm />
           </DialogContent>
@@ -325,7 +325,7 @@ export default function SignaturesPage() {
             <Search className="w-4 h-4 text-muted-foreground" />
             <input
               className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground"
-              placeholder="Search by name or professor..."
+              placeholder="Buscar por Profesor..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -339,11 +339,11 @@ export default function SignaturesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-6">Preview</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Professor</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead className="text-right pr-6">Actions</TableHead>
+                <TableHead className="pl-6">Prevista</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Profesor</TableHead>
+                <TableHead>Actualizado</TableHead>
+                <TableHead className="text-right pr-6">Acciones</TableHead>
               </TableRow>
             </TableHeader>
 

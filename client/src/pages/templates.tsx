@@ -249,7 +249,7 @@ export default function TemplatesPage() {
         <div>
           <h1 className="text-2xl font-serif font-bold text-primary">Templates</h1>
           <p className="text-muted-foreground">
-            Manage diploma PDF layouts (stored in S3 + tracked in Postgres). Active templates: {activeCount}
+          Gestionar diseños de diplomas en PDF. Plantillas activas: {activeCount}
           </p>
         </div>
 
@@ -299,7 +299,7 @@ export default function TemplatesPage() {
             <Search className="w-4 h-4 text-muted-foreground" />
             <input
               className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground"
-              placeholder="Search templates..."
+              placeholder="Buscar templates..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -313,10 +313,10 @@ export default function TemplatesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-6">Type</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created At</TableHead>
+                <TableHead className="pl-6">Tipo</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Creado</TableHead>
                 <TableHead className="text-right pr-6">Actions</TableHead>
               </TableRow>
             </TableHeader>

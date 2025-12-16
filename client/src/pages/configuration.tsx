@@ -29,10 +29,10 @@ interface ApiConfiguration {
 
 // Default layout used if no config is found in DB
 const DEFAULT_FIELDS: FieldConfig[] = [
-  { id: "studentName", label: "Student Name", x: 150, y: 280, fontSize: 24 },
-  { id: "course", label: "Course Name", x: 200, y: 400, fontSize: 18 },
-  { id: "professor", label: "Professor Name", x: 200, y: 500, fontSize: 16 },
-  { id: "signature", label: "Signature Image", x: 200, y: 600, fontSize: 0 }, // 0 = image only
+  { id: "studentName", label: "Nombre estudiante", x: 150, y: 280, fontSize: 24 },
+  { id: "course", label: "Nombre Curso", x: 200, y: 400, fontSize: 18 },
+  { id: "professor", label: "Nombre profesor", x: 200, y: 500, fontSize: 16 },
+  { id: "signature", label: "Firma", x: 200, y: 600, fontSize: 0 }, // 0 = image only
 ];
 
 export default function ConfigurationPage() {
@@ -158,7 +158,7 @@ export default function ConfigurationPage() {
   const handleReset = () => {
     setFields(DEFAULT_FIELDS);
     toast({
-      title: "Reset to Defaults",
+      title: "Resetear defaults",
       description: "Layout positions restored (not yet saved).",
       variant: "success",
     });
@@ -170,7 +170,7 @@ export default function ConfigurationPage() {
         <h1 className="text-2xl font-serif font-bold text-primary">
           Diploma Configuration
         </h1>
-        <p className="text-muted-foreground">Loading configuration…</p>
+        <p className="text-muted-foreground">Cargando configuracion…</p>
       </div>
     );
   }
@@ -192,7 +192,7 @@ export default function ConfigurationPage() {
           </Button>
           <Button onClick={handleSave} className="gap-2" disabled={saving}>
             <Save className="w-4 h-4" />
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Guardando..." : "Guardar"}
           </Button>
         </div>
       </div>
@@ -253,9 +253,9 @@ export default function ConfigurationPage() {
         {/* Visual Preview Mockup */}
         <Card className="h-fit sticky top-8 border-primary/20 bg-paper">
           <CardHeader>
-            <CardTitle>Visual Preview</CardTitle>
+            <CardTitle>Prevista Visual</CardTitle>
             <CardDescription>
-              Approximate layout visualization
+            Visualización aproximada del diseño
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -289,8 +289,7 @@ export default function ConfigurationPage() {
               ))}
             </div>
             <p className="text-xs text-center text-muted-foreground mt-4">
-              Preview is scaled. Actual output depends on PDF generation
-              engine.
+             La vista previa está escalada. El resultado real depende del motor de generación de PDF.
             </p>
           </CardContent>
         </Card>
