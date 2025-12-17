@@ -15,6 +15,7 @@ type DbBatchStatus = "recibido" | "processing" | "completed" | "failed"; // alig
 type DbDiplomaBatch = {
   id: number;
   fileName: string;
+  csvUrl?: string | null;
   status: DbBatchStatus;
   totalRecords: number;
   zipUrl?: string | null;
@@ -49,6 +50,29 @@ export default function GeneratePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // -------------------------------------------------------------------
+  // ---- to include the filename with a link to download
+  const shortName = (name: string) => {
+    if (!name) return "";
+    if (name.length <= 34) return name;
+    return `${name.slice(0, 16)}…${name.slice(-14)}`;
+  };
+  const downloadCsv = async (batch: DbDiplomaBatch) => {
+    if (!batch.csvUrl) {
+      toast({
+        title: "CSV no disponible",
+        description: "Este proceso no tiene csvUrl guardado aún.",
+        variant: "destructive",
+      });
+      return;
+    }
+  
+    // ----------------------------------------------------------------
+    // If your csvUrl is already a CloudFront/public URL, this is enough:
+    window.open(batch.csvUrl, "_blank");
+  };
+
 
   // Always refetch when landing here
   const batchesQuery = useQuery<DbDiplomaBatch[]>({
@@ -165,10 +189,35 @@ export default function GeneratePage() {
               <TableBody>
                 {paginatedBatches.map((batch) => (
                   <TableRow key={batch.id}>
-                    <TableCell className="pl-6 font-medium flex items-center gap-2">
+                    <TableCell className="pl-6 font-medium">
+                    <div className="flex items-center gap-2">
+                        <FileSpreadsheet className="w-4 h-4 text-muted-foreground" />
+
+                        {batch.csvUrl ? (
+                        <button
+                            type="button"
+                            className="text-left underline underline-offset-4 hover:text-primary transition-colors"
+                            title={batch.fileName}
+                            onClick={() => downloadCsv(batch)}
+                        >
+                            {shortName(batch.fileName)}
+                        </button>
+                        ) : (
+                        <span title={batch.fileName}>{shortName(batch.fileName)}</span>
+                        )}
+                    </div>
+
+                    {batch.csvUrl && (
+                        <div className="text-[11px] text-muted-foreground mt-1">
+                        Click para descargar el CSV
+                        </div>
+                    )}
+                    </TableCell>                    
+                    {/* <TableCell className="pl-6 font-medium flex items-center gap-2">
                       <FileSpreadsheet className="w-4 h-4 text-muted-foreground" />
                       {batch.fileName}
-                    </TableCell>
+                    </TableCell> */}
+
 
                     <TableCell>
                       <div className="flex items-center gap-2 text-muted-foreground text-xs">
