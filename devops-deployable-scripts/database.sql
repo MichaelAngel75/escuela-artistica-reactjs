@@ -219,20 +219,20 @@ CREATE TYPE cat_admin.po_batch_status AS ENUM (
 -- DROP TABLE cat_admin.diploma_batches;
 
 CREATE TABLE cat_admin.po_diploma_batches (
---	id serial4 NOT NULL,
 	id int4 GENERATED ALWAYS AS IDENTITY( INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START 1 CACHE 1 NO CYCLE) NOT NULL,
 	file_name varchar(255) NOT NULL,
-	status cat_admin."po_batch_status" DEFAULT 'recibido' NOT NULL,
+	status cat_admin."po_batch_status" DEFAULT 'recibido'::cat_admin.po_batch_status NOT NULL,
 	total_records serial4 NOT NULL,
 	zip_url text NULL,
 	created_by varchar NULL,
 	created_at timestamp DEFAULT now() NULL,
 	updated_at timestamp DEFAULT now() NULL,
+	csv_url varchar NULL,
 	CONSTRAINT diploma_batches_pkey PRIMARY KEY (id)
 );
 
 
--- cat_admin.diploma_batches foreign keys
+-- cat_admin.po_diploma_batches foreign keys
 
 ALTER TABLE cat_admin.po_diploma_batches ADD CONSTRAINT diploma_batches_created_by_users_id_fk FOREIGN KEY (created_by) REFERENCES cat_admin.users(email);
 

@@ -211,6 +211,17 @@ export function buildSignatureKey(originalFilename: string) {
   return `${root_path}/signatures/${yyyy}-${mm}-${dd}/${safeName}`;
 }
 
+export function buildGeneratedDiplomasCsvKey(originalFilename: string, idProceso: number) {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+
+  const safeName = originalFilename.replace(/[^\w.\-]+/g, "_");
+  const fileName = safeName.toLowerCase().endsWith(".csv") ? safeName : `${safeName}.csv`;
+
+  return `${root_path}/generated-diplomas/${yyyy}-${mm}-${dd}/proceso-${idProceso}/${fileName}`;
+}
 
 export function extractParentPrefixFromUrl(input: string): string | null {
   if (!input) return null;

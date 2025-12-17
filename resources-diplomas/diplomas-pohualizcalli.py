@@ -4,6 +4,17 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from io import BytesIO
 
+# --------------------------------------------------------
+# Lambda:
+
+# query record batch-diploma by id
+# update status by Id
+# update Zip file by id
+# - Leer diplomas template from S3 active one
+# - Leer todas las firmas from S3
+# - Guardar zip con todos los pdf generados
+# --------------------------------------------------------
+
 def agregar_datos_a_certificado(template_pdf, output_pdf, csv_file, posiciones):
     """
     Genera certificados personalizados a partir de un PDF base y un archivo CSV.

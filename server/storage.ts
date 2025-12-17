@@ -192,20 +192,21 @@ export class DatabaseStorage implements IStorage {
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   // -----------------------------------------------------------------------------------
   // Diploma batch operations
+// types should match your schema mapping
   async getDiplomaBatches(): Promise<DiplomaBatch[]> {
     const db = await getDb();
-    return await db.select().from(diplomaBatches).orderBy(desc(diplomaBatches.createdAt));
+    return db.select().from(diplomaBatches).orderBy(desc(diplomaBatches.createdAt));
+  }
+
+  async createDiplomaBatch(data: InsertDiplomaBatch): Promise<DiplomaBatch> {
+    const db = await getDb();
+    const [row] = await db.insert(diplomaBatches).values(data).returning();
+    return row;
   }
   
   async getDiplomaBatch(id: number): Promise<DiplomaBatch | undefined> {
     const db = await getDb();
     const [batch] = await db.select().from(diplomaBatches).where(eq(diplomaBatches.id, id));
-    return batch;
-  }
-  
-  async createDiplomaBatch(batchData: InsertDiplomaBatch): Promise<DiplomaBatch> {
-    const db = await getDb();
-    const [batch] = await db.insert(diplomaBatches).values(batchData).returning();
     return batch;
   }
   

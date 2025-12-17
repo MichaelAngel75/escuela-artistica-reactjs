@@ -8,6 +8,17 @@ import unicodedata
 from reportlab.pdfbase import pdfmetrics
 from reportlab.lib.pagesizes import letter
 
+# --------------------------------------------------------
+# Lambda:
+
+# query record batch-diploma by id
+# update status by Id
+# update Zip file by id
+# - Leer diplomas template from S3 active one
+# - Leer todas las firmas from S3
+# - Guardar zip con todos los pdf generados
+# --------------------------------------------------------
+
 # Get the total width of the page
 page_width = letter[0]
 

@@ -123,6 +123,7 @@ export const diplomaBatches = dbSchema.table("po_diploma_batches", {
   status: batchStatusEnum("status").notNull().default("processing"),
   totalRecords: integer("total_records").notNull(),
   zipUrl: text("zip_url"),
+  csvUrl: text("csv_url"),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

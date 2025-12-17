@@ -25,7 +25,7 @@ export default function UsersPage() {
 
   const handleDelete = (id: string) => {
     deleteUser(id);
-    toast({ title: "User Deleted", description: "The user has been removed.", variant: "success" });
+    toast({ title: "Usuario Borrado", description: "El usuario fue eliminado.", variant: "success" });
   };
 
   const filteredUsers = users.filter(u => 
@@ -60,14 +60,14 @@ export default function UsersPage() {
         try {
             if (editingUser) {
                 updateUser(editingUser.id, data);
-                toast({ title: "User Updated", description: "User details saved.", variant: "success" });
+                toast({ title: "Usuario actualizado", description: "Detalles de usuario guardados.", variant: "success" });
             } else {
                 addUser({
                     ...data,
                     photoUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.name}`,
                     googleId: `manual-${Date.now()}`
                 });
-                toast({ title: "Success", description: "New user account created.", variant: "success" });
+                toast({ title: "Exitosamente", description: "Nuevo usuario creado.", variant: "success" });
             }
             reset();
             setIsDialogOpen(false);
@@ -80,7 +80,7 @@ export default function UsersPage() {
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-                <label className="text-sm font-medium">Full Name</label>
+                <label className="text-sm font-medium">Nombre completo</label>
                 <Input {...register("name", { required: true })} placeholder="John Doe" />
             </div>
             <div>
