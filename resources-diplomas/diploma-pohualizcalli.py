@@ -8,6 +8,8 @@ import unicodedata
 from reportlab.pdfbase import pdfmetrics
 from reportlab.lib.pagesizes import letter
 from datetime import datetime
+import os
+from reportlab.lib.utils import ImageReader
 
 
 # --------------------------------------------------------
@@ -131,6 +133,34 @@ def agregar_datos_a_certificado(template_pdf, csv_file, posiciones):
         c.setFillColorRGB(0.2, 0.2, 0.2)  # Darker gray
         c.drawString(centered_x, posiciones["curso"][1], curso)  # Uppercase and centered
     
+
+        # =============================================================================
+        # ----   F I R M A   (GIF) --------------------
+        sig_x, sig_y = posiciones["profesor-signature"]
+        sig_size = 125  # 30x30 square (points)
+
+        try:
+            # If image_firma_gif is a local path like "firmas/michael_torres.gif"
+            if not os.path.exists(image_firma_gif):
+                raise FileNotFoundError(f"Signature image not found: {image_firma_gif}")
+
+            img = ImageReader(image_firma_gif)
+
+            # mask="auto" tries to treat a background color as transparent (best-effort)
+            c.drawImage(
+                img,
+                sig_x,
+                sig_y,
+                width=sig_size,
+                height=sig_size,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
+        except Exception as e:
+            # Don't kill the whole batch if one signature is missing
+            print(f"[WARN] Could not render signature '{image_firma_gif}' for profesor='{profesor}': {e}")
+
+
         # =============================================================================
         # Estilo para la fecha (predeterminado)
         # PROFESOR (centered in x-range)
@@ -185,7 +215,7 @@ csv_file = "diploma-datos.csv"         # Archivo CSV con los datos
 posiciones = {
     "nombre": (190, 300),  # Posición del nombre          (x, y)
     "curso": (280, 253),   # Posición del curso/taller    (x, y)
-    "profesor-signature": (440, 140),  # Position nombre profesor   (x, y)  take both values
+    "profesor-signature": (442, 100),  # Position nombre profesor   (x, y)  take both values
     "profesor": ((433, 573), 97),  # Position nombre profesor   Minimum: (433-573, 97) Maximum: (404-602, 97) take both values  x 610 is cutting the letter
     "fecha": (418, 25)    # Posición de la fecha         (x, y)  take both values
 }
