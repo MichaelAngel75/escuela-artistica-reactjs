@@ -32,6 +32,26 @@ from datetime import datetime
 # Get the total width of the page
 page_width = letter[0]
 
+def centered_x_in_range(text: str, x_min: float, x_max: float, font_name: str, font_size: float) -> float:
+    """
+    Returns an x so that `text` is centered within [x_min, x_max], using the given font.
+    Clamps to avoid overflow/cutting.
+    """
+    width = pdfmetrics.stringWidth(text, font_name, font_size)
+    center = (x_min + x_max) / 2.0
+    x = center - (width / 2.0)
+
+    # Clamp so text stays fully inside the range
+    left_bound = x_min
+    right_bound = x_max - width
+    if x < left_bound:
+        x = left_bound
+    if x > right_bound:
+        x = right_bound
+
+    return x
+
+
 def fecha_a_espanol(fecha_str: str) -> str:
     meses = [
         "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -113,9 +133,20 @@ def agregar_datos_a_certificado(template_pdf, csv_file, posiciones):
     
         # =============================================================================
         # Estilo para la fecha (predeterminado)
-        c.setFont("Helvetica", 12)     # Tamaño regular
-        c.setFillColor("black")        # Color negro
-        c.drawString(posiciones["profesor"][0], posiciones["profesor"][1], profesor)
+        # PROFESOR (centered in x-range)
+        prof_font = "Helvetica"
+        prof_size = 12
+
+        c.setFont(prof_font, prof_size)
+        c.setFillColor("black")  
+
+        # c.setFont("Helvetica", 12)     # Tamaño regular
+        # c.setFillColor("black")        # Color negro
+        (x_min, x_max), y_prof = posiciones["profesor"]
+        x_prof = centered_x_in_range(profesor, x_min, x_max, prof_font, prof_size)
+        c.drawString(x_prof, y_prof, profesor)
+
+        # c.drawString(posiciones["profesor"][0], posiciones["profesor"][1], profesor)
 
         # =============================================================================
         # Estilo para la fecha (predeterminado)
@@ -154,8 +185,8 @@ csv_file = "diploma-datos.csv"         # Archivo CSV con los datos
 posiciones = {
     "nombre": (190, 300),  # Posición del nombre          (x, y)
     "curso": (280, 253),   # Posición del curso/taller    (x, y)
-    "profesor-signature": (430, 100),  # Position nombre profesor   (x, y)  take both values
-    "profesor": (433-573, 97),  # Position nombre profesor   Minimum: (433-573, 97) Maximum: (404-602, 97) take both values  x 610 is cutting the letter
+    "profesor-signature": (440, 140),  # Position nombre profesor   (x, y)  take both values
+    "profesor": ((433, 573), 97),  # Position nombre profesor   Minimum: (433-573, 97) Maximum: (404-602, 97) take both values  x 610 is cutting the letter
     "fecha": (418, 25)    # Posición de la fecha         (x, y)  take both values
 }
 
