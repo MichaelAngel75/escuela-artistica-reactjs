@@ -1,298 +1,938 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useCallback, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { Save, RotateCcw } from "lucide-react";
-import { apiFetchJson } from "@/lib/apiFetch";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  defaultFieldMappings,
+  AVAILABLE_FONTS,
+  type FieldMappings,
+  type FontConfig,
+} from "@shared/schema";
+import { Save, RotateCcw, User, GraduationCap, PenTool, Calendar, UserCircle, AlertCircle } from "lucide-react";
 
-interface FieldConfig {
-  id: string;
+const date = new Date();
+
+const day = date.getDate();
+const year = date.getFullYear();
+
+const month = date.toLocaleString("es-ES", { month: "long" });
+const monthCapitalized = month.charAt(0).toUpperCase() + month.slice(1);
+
+const formattedToday = `${day} de ${monthCapitalized}, ${year}`;
+
+
+// Preview canvas dimensions (scaled representation of PDF coordinates)
+const PREVIEW_WIDTH = 612; // Standard letter width in points
+const PREVIEW_HEIGHT = 792; // Standard letter height in points
+
+// Helper to validate hex color
+function isValidHex(color: string): boolean {
+  return /^#[0-9A-Fa-f]{6}$/.test(color);
+}
+
+// Color preview component
+function ColorPreview({ color, isValid }: { color: string; isValid: boolean }) {
+  return (
+    <div
+      className="w-5 h-5 rounded-md border border-border flex-shrink-0"
+      style={{
+        backgroundColor: isValid ? color : "#ffffff",
+        borderColor: isValid ? color : "hsl(var(--destructive))",
+      }}
+      data-testid="color-preview"
+    />
+  );
+}
+
+// Font input group component
+function FontInputGroup({
+  label,
+  font,
+  onChange,
+  fieldId,
+}: {
   label: string;
-  x: number;
-  y: number;
-  fontSize: number;
-}
+  font: FontConfig;
+  onChange: (font: FontConfig) => void;
+  fieldId: string;
+}) {
+  const [localColor, setLocalColor] = useState(font.color);
+  const isValidColor = isValidHex(localColor);
 
-// This matches the JSONB structure in configuration_diploma.field_mappings
-interface ApiConfiguration {
-  fieldMappings: Record<
-    string,
-    {
-      x: number;
-      y: number;
-      fontSize?: number;
-      label?: string;
-    }
-  >;
-}
-
-// Default layout used if no config is found in DB
-const DEFAULT_FIELDS: FieldConfig[] = [
-  { id: "studentName", label: "Nombre estudiante", x: 150, y: 280, fontSize: 24 },
-  { id: "course", label: "Nombre Curso", x: 200, y: 400, fontSize: 18 },
-  { id: "professor", label: "Nombre profesor", x: 200, y: 500, fontSize: 16 },
-  { id: "signature", label: "Firma", x: 200, y: 600, fontSize: 0 }, // 0 = image only
-];
-
-export default function ConfigurationPage() {
-  const { toast } = useToast();
-  const [fields, setFields] = useState<FieldConfig[]>(DEFAULT_FIELDS);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  // ---- Helpers to map API <-> UI ----
-
-  const mapFromApi = (apiConfig: ApiConfiguration | null): FieldConfig[] => {
-    if (!apiConfig || !apiConfig.fieldMappings) {
-      return DEFAULT_FIELDS;
-    }
-
-    const result: FieldConfig[] = [];
-
-    for (const def of DEFAULT_FIELDS) {
-      const apiField = apiConfig.fieldMappings[def.id];
-
-      if (apiField) {
-        result.push({
-          id: def.id,
-          label: apiField.label ?? def.label,
-          x: apiField.x ?? def.x,
-          y: apiField.y ?? def.y,
-          fontSize: def.id === "signature"
-            ? 0
-            : apiField.fontSize ?? def.fontSize,
-        });
-      } else {
-        // If backend doesn't have this field yet, fallback to default
-        result.push(def);
-      }
-    }
-
-    return result;
-  };
-
-  const mapToApi = (fields: FieldConfig[]): ApiConfiguration["fieldMappings"] => {
-    const mappings: ApiConfiguration["fieldMappings"] = {};
-
-    for (const f of fields) {
-      mappings[f.id] = {
-        x: f.x,
-        y: f.y,
-        ...(f.id !== "signature" ? { fontSize: f.fontSize } : {}),
-        label: f.label,
-      };
-    }
-
-    return mappings;
-  };
-
-  // ---- Load configuration from backend on mount ----
   useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const data = await apiFetchJson<ApiConfiguration | null>(
-          "/api/configuration",
-        );
-    
-        setFields(mapFromApi(data));
-    
-        toast({
-          title: "Configuration loaded",
-          description: "Using saved diploma layout.",
-          variant: "success", // 🟢
-        });
-      } catch (error) {
-        console.error(error);
-    
-        toast({
-          title: "Failed to load configuration",
-          description: "Using default layout instead.",
-          variant: "destructive", // 🔴
-        });
-      } finally {
-        setLoading(false);
-      }      
-    };    
+    setLocalColor(font.color);
+  }, [font.color]);
 
-    loadConfig();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const handleColorChange = useCallback(
+    (value: string) => {
+      setLocalColor(value);
+      if (isValidHex(value)) {
+        onChange({ ...font, color: value });
+      }
+    },
+    [font, onChange]
+  );
 
-  // ---- Handlers ----
+  return (
+    <div className="space-y-3">
+      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
+      
+      <div className="grid grid-cols-1 gap-3">
+        {/* Nombre de la Fuente */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Nombre de la Fuente</Label>
+          <Select
+            value={font.name}
+            onValueChange={(value) => onChange({ ...font, name: value })}
+          >
+            <SelectTrigger data-testid={`select-font-${fieldId}`}>
+              <SelectValue placeholder="Select font" />
+            </SelectTrigger>
+            <SelectContent>
+              {AVAILABLE_FONTS.map((fontName) => (
+                <SelectItem key={fontName} value={fontName}>
+                  <span style={{ fontFamily: fontName.split("-")[0] }}>
+                    {fontName}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* <p className="text-xs text-muted-foreground">Python PDF compatible fonts</p> */}
+        </div>
 
-  const handleChange = (id: string, key: keyof FieldConfig, value: string) => {
-    const numValue = parseInt(value, 10) || 0;
-    setFields((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, [key]: numValue } : f)),
-    );
+        {/* Font Size */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Tamaño (8-48 pt)</Label>
+          <Input
+            type="number"
+            min={8}
+            max={48}
+            value={font.size}
+            onChange={(e) =>
+              onChange({ ...font, size: parseInt(e.target.value) || 12 })
+            }
+            data-testid={`input-font-size-${fieldId}`}
+          />
+          {/* <p className="text-xs text-muted-foreground">Font size in points</p> */}
+        </div>
+
+        {/* Color */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Color (Hex)</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              value={localColor}
+              onChange={(e) => handleColorChange(e.target.value)}
+              placeholder="#000000"
+              className={!isValidColor && localColor.length > 0 ? "border-destructive" : ""}
+              data-testid={`input-color-${fieldId}`}
+            />
+            <ColorPreview color={localColor} isValid={isValidColor} />
+          </div>
+          {!isValidColor && localColor.length > 0 && (
+            <p className="text-xs text-destructive flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              Invalid hex format (e.g. #FF5500)
+            </p>
+          )}
+          {/* Ejemplo de texto – vista previa */}
+          {isValidColor && (
+            <div
+              className="mt-2 p-3 bg-white dark:bg-gray-900 rounded-md border"
+              style={{
+                color: localColor,
+                fontFamily: font.name.split("-")[0],
+                fontSize: `${Math.min(font.size, 18)}px`,
+                fontWeight: font.name.includes("Bold") ? "bold" : "normal",
+                fontStyle: font.name.includes("Oblique") || font.name.includes("Italic") ? "italic" : "normal",
+              }}
+              data-testid={`text-preview-${fieldId}`}
+            >
+              Ejemplo de texto – vista previa
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Position input component
+function PositionInput({
+  label,
+  value,
+  onChange,
+  testId,
+  helperText,
+  required = false,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  testId: string;
+  helperText?: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">
+        {label}
+        {required && <span className="text-destructive ml-1">*</span>}
+      </Label>
+      <Input
+        type="number"
+        min={0}
+        value={value}
+        onChange={(e) => onChange(parseInt(e.target.value) || 0)}
+        data-testid={testId}
+      />
+      {helperText && <p className="text-xs text-muted-foreground">{helperText}</p>}
+    </div>
+  );
+}
+
+// Loading skeleton for form
+function FormSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="border rounded-lg p-4 space-y-3">
+          <Skeleton className="h-6 w-40" />
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Configuration() {
+  const { toast } = useToast();
+  const [config, setConfig] = useState<FieldMappings>(defaultFieldMappings);
+
+  // Fetch existing configuration
+  const { data: savedConfig, isLoading, isError, error } = useQuery<{ fieldMappings: FieldMappings }>({
+    queryKey: ["/api/configuration"],
+  });
+
+  useEffect(() => {
+    if (savedConfig?.fieldMappings) {
+      setConfig(savedConfig.fieldMappings);
+    }
+  }, [savedConfig]);
+
+  // Save mutation
+  const saveMutation = useMutation({
+    mutationFn: async (data: FieldMappings) => {
+      return apiRequest("POST", "/api/configuration", { fieldMappings: data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configuration"] });
+      toast({
+        title: "Configuracion Guardada",
+        description: "Configuraciones de Diploma guardada exitosamente.",
+        variant: "success",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save configuration. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Validate configuration before saving
+  const validateConfig = (): boolean => {
+    // Check estudiante
+    if (!config.estudiante.centered && (config.estudiante.x === undefined || config.estudiante.x < 0)) {
+      toast({
+        title: "Validation Error",
+        description: "Estudiante requiere la Posicion Horizontal (cuando no esta centrado).",
+        variant: "destructive",
+      });
+      return false;
+    }
+    // Check curso
+    if (!config.curso.centered && (config.curso.x === undefined || config.curso.x < 0)) {
+      toast({
+        title: "Validation Error",
+        description: "Curso requiere la Posicion Horizontal (cuando no esta centrado).",
+        variant: "destructive",
+      });
+      return false;
+    }
+    // Validate hex colors
+    if (!isValidHex(config.estudiante.font.color) ||
+        !isValidHex(config.curso.font.color) ||
+        !isValidHex(config.profesor.font.color) ||
+        !isValidHex(config.fecha.font.color)) {
+      toast({
+        title: "Validation Error",
+        description: "Todos los colores deben ser hexadecimal (e.g. #FF5500).",
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
   };
 
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-      
-      const fieldMappings = mapToApi(fields);
-      await apiFetchJson("/api/configuration", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fieldMappings }),
-      });
-  
-      toast({
-        title: "Saved successfully",
-        description: "Diploma configuration updated.",
-        variant: "success", // 🟢
-      });
-    } catch (error) {
-      toast({
-        title: "Save failed",
-        description: "Please try again.",
-        variant: "destructive", // 🔴
-      });
-    } finally {
-      setSaving(false);
+  const handleSave = () => {
+    if (validateConfig()) {
+      // Build the output JSON based on centered status
+      const outputConfig: any = {
+        estudiante: {
+          y: config.estudiante.y,
+          centered: config.estudiante.centered,
+          ...(config.estudiante.centered ? {} : { x: config.estudiante.x }),
+          font: config.estudiante.font,
+        },
+        curso: {
+          y: config.curso.y,
+          centered: config.curso.centered,
+          ...(config.curso.centered ? {} : { x: config.curso.x }),
+          font: config.curso.font,
+        },
+        "profesor-signature": config["profesor-signature"],
+        profesor: config.profesor,
+        fecha: config.fecha,
+      };
+      saveMutation.mutate(outputConfig);
     }
   };
 
   const handleReset = () => {
-    setFields(DEFAULT_FIELDS);
+    setConfig(defaultFieldMappings);
     toast({
-      title: "Resetear defaults",
-      description: "Layout positions restored (not yet saved).",
+      title: "Reset",
+      description: "Configuration reseteado a valores default.",
       variant: "success",
     });
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6 max-w-4xl mx-auto py-10">
-        <h1 className="text-2xl font-serif font-bold text-primary">
-          Diploma Configuration
-        </h1>
-        <p className="text-muted-foreground">Cargando configuracion…</p>
-      </div>
-    );
-  }
+  // Update helpers
+  const updateEstudiante = useCallback(
+    (updates: Partial<typeof config.estudiante>) => {
+      setConfig((prev) => ({
+        ...prev,
+        estudiante: { ...prev.estudiante, ...updates },
+      }));
+    },
+    []
+  );
+
+  const updateCurso = useCallback(
+    (updates: Partial<typeof config.curso>) => {
+      setConfig((prev) => ({
+        ...prev,
+        curso: { ...prev.curso, ...updates },
+      }));
+    },
+    []
+  );
+
+  const updateProfesorSignature = useCallback(
+    (updates: Partial<typeof config["profesor-signature"]>) => {
+      setConfig((prev) => ({
+        ...prev,
+        "profesor-signature": { ...prev["profesor-signature"], ...updates },
+      }));
+    },
+    []
+  );
+
+  const updateProfesor = useCallback(
+    (updates: Partial<typeof config.profesor>) => {
+      setConfig((prev) => ({
+        ...prev,
+        profesor: { ...prev.profesor, ...updates },
+      }));
+    },
+    []
+  );
+
+  const updateFecha = useCallback(
+    (updates: Partial<typeof config.fecha>) => {
+      setConfig((prev) => ({
+        ...prev,
+        fecha: { ...prev.fecha, ...updates },
+      }));
+    },
+    []
+  );
+
+  // Generate output JSON for display (matching user's required format)
+  const generateOutputJson = () => {
+    const output: any = {
+      estudiante: {
+        y: config.estudiante.y,
+        centered: config.estudiante.centered,
+        font: config.estudiante.font,
+      },
+      curso: {
+        y: config.curso.y,
+        centered: config.curso.centered,
+        font: config.curso.font,
+      },
+      "profesor-signature": {
+        x: config["profesor-signature"].x,
+        y: config["profesor-signature"].y,
+        size: config["profesor-signature"].size,
+      },
+      profesor: {
+        x_range: config.profesor.x_range,
+        y: config.profesor.y,
+        font: config.profesor.font,
+      },
+      fecha: {
+        x: config.fecha.x,
+        y: config.fecha.y,
+        font: config.fecha.font,
+      },
+    };
+    
+    // Add x to estudiante/curso only if not centered
+    if (!config.estudiante.centered) {
+      output.estudiante.x = config.estudiante.x || 0;
+    }
+    if (!config.curso.centered) {
+      output.curso.x = config.curso.x || 0;
+    }
+    
+    return output;
+  };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-serif font-bold text-primary">
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+          <h1 className="text-xl font-semibold" data-testid="text-page-title">
             Diploma Configuration
           </h1>
-          <p className="text-muted-foreground">
-            Define precise positioning for dynamic fields
-          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              disabled={isLoading}
+              data-testid="button-reset"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saveMutation.isPending || isLoading}
+              data-testid="button-save"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {saveMutation.isPending ? "Saving..." : "Save Configuration"}
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleReset} className="gap-2">
-            <RotateCcw className="w-4 h-4" /> Reset
-          </Button>
-          <Button onClick={handleSave} className="gap-2" disabled={saving}>
-            <Save className="w-4 h-4" />
-            {saving ? "Guardando..." : "Guardar"}
-          </Button>
-        </div>
-      </div>
+      </header>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          {fields.map((field) => (
-            <Card key={field.id}>
-              <CardHeader className="py-3">
-                <CardTitle className="text-base font-medium">
-                  {field.label}
-                </CardTitle>
+      {/* Error State */}
+      {isError && (
+        <div className="container mx-auto px-4 py-4">
+          <div className="bg-destructive/10 border border-destructive rounded-lg p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <div>
+              <p className="font-medium text-destructive">Error cargando configuracion</p>
+              <p className="text-sm text-muted-foreground">Usando valores default. {(error as Error)?.message}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content - Two Panel Layout */}
+      <div className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Left Panel - Configuration Form (40%) */}
+          <div className="lg:col-span-2 space-y-4">
+            {isLoading ? (
+              <FormSkeleton />
+            ) : (
+              <Accordion
+                type="multiple"
+                defaultValue={["estudiante", "curso", "profesor-signature", "profesor", "fecha"]}
+                className="space-y-3"
+              >
+                {/* Estudiante Configuration */}
+                <AccordionItem value="estudiante" className="border rounded-lg overflow-visible">
+                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">Nombre de Alumno</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                    <div className="space-y-4">
+                      {/* Centered Toggle */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm">Centrado Horizontalmente</Label>
+                          <p className="text-xs text-muted-foreground">Cuando OFF, la Posicion Horizontal is requerida</p>
+                        </div>
+                        <Switch
+                          checked={config.estudiante.centered}
+                          onCheckedChange={(checked) => {
+                            updateEstudiante({ 
+                              centered: checked,
+                              x: checked ? undefined : (config.estudiante.x || 100)
+                            });
+                          }}
+                          data-testid="switch-estudiante-centered"
+                        />
+                      </div>
+
+                      {/* Position Controls */}
+                      <div className="grid grid-cols-2 gap-3">
+                        {!config.estudiante.centered && (
+                          <PositionInput
+                            label="Posicion Horizontal"
+                            value={config.estudiante.x || 0}
+                            onChange={(value) => updateEstudiante({ x: value })}
+                            testId="input-estudiante-x"
+                            helperText="Horizontal position in points"
+                            required
+                          />
+                        )}
+                        <PositionInput
+                          label="Posicion Vertical"
+                          value={config.estudiante.y}
+                          onChange={(value) => updateEstudiante({ y: value })}
+                          testId="input-estudiante-y"
+                          // // // helperText="Posicion vertical desde abajo"
+                          required
+                        />
+                      </div>
+
+                      {/* Font Configuration */}
+                      <FontInputGroup
+                        label="Font Settings"
+                        font={config.estudiante.font}
+                        onChange={(font) => updateEstudiante({ font })}
+                        fieldId="estudiante"
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* Curso Configuration */}
+                <AccordionItem value="curso" className="border rounded-lg overflow-visible">
+                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">Nombre del Curso</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                    <div className="space-y-4">
+                      {/* Centered Toggle */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-sm">Centrado horizontalmente</Label>
+                          <p className="text-xs text-muted-foreground">Cuando OFF, Posicion Horizontal is requerida</p>
+                        </div>
+                        <Switch
+                          checked={config.curso.centered}
+                          onCheckedChange={(checked) => {
+                            updateCurso({ 
+                              centered: checked,
+                              x: checked ? undefined : (config.curso.x || 100)
+                            });
+                          }}
+                          data-testid="switch-curso-centered"
+                        />
+                      </div>
+
+                      {/* Position Controls */}
+                      <div className="grid grid-cols-2 gap-3">
+                        {!config.curso.centered && (
+                          <PositionInput
+                            label="Posicion Horizontal"
+                            value={config.curso.x || 0}
+                            onChange={(value) => updateCurso({ x: value })}
+                            testId="input-curso-x"
+                            helperText="Horizontal position in points"
+                            required
+                          />
+                        )}
+                        <PositionInput
+                          label="Posicion Vertical"
+                          value={config.curso.y}
+                          onChange={(value) => updateCurso({ y: value })}
+                          testId="input-curso-y"
+                          //  helperText="Posicion vertical desde abajo"
+                          required
+                        />
+                      </div>
+
+                      {/* Font Configuration */}
+                      <FontInputGroup
+                        label="Font Settings"
+                        font={config.curso.font}
+                        onChange={(font) => updateCurso({ font })}
+                        fieldId="curso"
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* Profesor Signature Configuration */}
+                <AccordionItem value="profesor-signature" className="border rounded-lg overflow-visible">
+                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <PenTool className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">Firma del Profesor</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                    <div className="space-y-4">
+                      {/* Position Controls */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <PositionInput
+                          label="Posicion Horizontal"
+                          value={config["profesor-signature"].x}
+                          onChange={(value) => updateProfesorSignature({ x: value })}
+                          testId="input-profesor-signature-x"
+                          helperText="Horizontal position in points"
+                          required
+                        />
+                        <PositionInput
+                          label="Posicion Vertical"
+                          value={config["profesor-signature"].y}
+                          onChange={(value) => updateProfesorSignature({ y: value })}
+                          testId="input-profesor-signature-y"
+                          helperText="Vertical position from bottom"
+                          required
+                        />
+                      </div>
+
+                      {/* Size Control */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">
+                          Tamaño de firma (50-200)
+                          <span className="text-destructive ml-1">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          min={50}
+                          max={200}
+                          value={config["profesor-signature"].size}
+                          onChange={(e) =>
+                            updateProfesorSignature({
+                              size: parseInt(e.target.value) || 125,
+                            })
+                          }
+                          data-testid="input-profesor-signature-size"
+                        />
+                        <p className="text-xs text-muted-foreground">Tamaño de la firma en puntos</p>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* Profesor Name Configuration */}
+                <AccordionItem value="profesor" className="border rounded-lg overflow-visible">
+                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <UserCircle className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">Nombre del Profesor</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                    <div className="space-y-4">
+                      {/* X Range Controls */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">
+                          Rango posicion X (Min - Max)
+                          <span className="text-destructive ml-1">*</span>
+                        </Label>
+                        <p className="text-xs text-muted-foreground mb-2">El texto sera centrado desde este rango</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={config.profesor.x_range[0]}
+                              onChange={(e) =>
+                                updateProfesor({
+                                  x_range: [
+                                    parseInt(e.target.value) || 0,
+                                    config.profesor.x_range[1],
+                                  ],
+                                })
+                              }
+                              placeholder="Min X"
+                              data-testid="input-profesor-x-min"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">Min X</p>
+                          </div>
+                          <div>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={config.profesor.x_range[1]}
+                              onChange={(e) =>
+                                updateProfesor({
+                                  x_range: [
+                                    config.profesor.x_range[0],
+                                    parseInt(e.target.value) || 0,
+                                  ],
+                                })
+                              }
+                              placeholder="Max X"
+                              data-testid="input-profesor-x-max"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">Max X</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <PositionInput
+                        label="Posicion Vertical"
+                        value={config.profesor.y}
+                        onChange={(value) => updateProfesor({ y: value })}
+                        testId="input-profesor-y"
+                        helperText="Vertical position from bottom"
+                        required
+                      />
+
+                      {/* Font Configuration */}
+                      <FontInputGroup
+                        label="Font Settings"
+                        font={config.profesor.font}
+                        onChange={(font) => updateProfesor({ font })}
+                        fieldId="profesor"
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* Fecha Configuration */}
+                <AccordionItem value="fecha" className="border rounded-lg overflow-visible">
+                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">Fecha</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                    <div className="space-y-4">
+                      {/* Position Controls */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <PositionInput
+                          label="Posicion Horizontal"
+                          value={config.fecha.x}
+                          onChange={(value) => updateFecha({ x: value })}
+                          testId="input-fecha-x"
+                          helperText="Horizontal position in points"
+                          required
+                        />
+                        <PositionInput
+                          label="Posicion Vertical"
+                          value={config.fecha.y}
+                          onChange={(value) => updateFecha({ y: value })}
+                          testId="input-fecha-y"
+                          helperText="Vertical position from bottom"
+                          required
+                        />
+                      </div>
+
+                      {/* Font Configuration */}
+                      <FontInputGroup
+                        label="Font Settings"
+                        font={config.fecha.font}
+                        onChange={(font) => updateFecha({ font })}
+                        fieldId="fecha"
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
+          </div>
+
+          {/* Right Panel - Preview (60%) */}
+          <div className="lg:col-span-3">
+            <Card className="sticky top-20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Vista Previa</CardTitle>
+                <p className="text-sm text-muted-foreground">Representación a escala: las coordenadas están en puntos PDF (1 punto = 1/72 de pulgada).</p>
               </CardHeader>
-              <CardContent className="grid grid-cols-3 gap-4 pb-4">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">
-                    X Position (px)
-                  </label>
-                  <Input
-                    type="number"
-                    value={field.x}
-                    onChange={(e) =>
-                      handleChange(field.id, "x", e.target.value)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">
-                    Y Position (px)
-                  </label>
-                  <Input
-                    type="number"
-                    value={field.y}
-                    onChange={(e) =>
-                      handleChange(field.id, "y", e.target.value)
-                    }
-                  />
-                </div>
-                {field.id !== "signature" && (
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Font Size (pt)
-                    </label>
-                    <Input
-                      type="number"
-                      value={field.fontSize}
-                      onChange={(e) =>
-                        handleChange(field.id, "fontSize", e.target.value)
-                      }
-                    />
+              <CardContent>
+                {/* Diploma Preview Canvas */}
+                <div
+                  className="relative bg-white border rounded-lg shadow-sm overflow-hidden"
+                  style={{
+                    aspectRatio: `${PREVIEW_WIDTH} / ${PREVIEW_HEIGHT}`,
+                    minHeight: "450px",
+                  }}
+                  data-testid="preview-canvas"
+                >
+                  {/* Coordinate Grid Overlay */}
+                  <div className="absolute inset-0 opacity-10 pointer-events-none">
+                    <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                          <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#666" strokeWidth="0.5"/>
+                        </pattern>
+                      </defs>
+                      <rect width="100%" height="100%" fill="url(#grid)" />
+                    </svg>
                   </div>
-                )}
+
+                  {/* Preview Elements - Using percentage-based positioning that maps to PDF coordinates */}
+                  <div className="absolute inset-0">
+                    {/* Estudiante Preview */}
+                    <div
+                      className="absolute whitespace-nowrap"
+                      style={{
+                        bottom: `${(config.estudiante.y / PREVIEW_HEIGHT) * 100}%`,
+                        left: config.estudiante.centered ? "50%" : `${((config.estudiante.x || 0) / PREVIEW_WIDTH) * 100}%`,
+                        transform: config.estudiante.centered ? "translateX(-50%)" : "none",
+                        color: config.estudiante.font.color,
+                        fontFamily: config.estudiante.font.name.split("-")[0],
+                        fontSize: `${Math.max(config.estudiante.font.size * 0.6, 10)}px`,
+                        fontWeight: config.estudiante.font.name.includes("Bold") ? "bold" : "normal",
+                        fontStyle:
+                          config.estudiante.font.name.includes("Oblique") ||
+                          config.estudiante.font.name.includes("Italic")
+                            ? "italic"
+                            : "normal",
+                      }}
+                      data-testid="preview-estudiante"
+                    >
+                      Jose Perez Perez
+                    </div>
+
+                    {/* Curso Preview */}
+                    <div
+                      className="absolute whitespace-nowrap"
+                      style={{
+                        bottom: `${(config.curso.y / PREVIEW_HEIGHT) * 100}%`,
+                        left: config.curso.centered ? "50%" : `${((config.curso.x || 0) / PREVIEW_WIDTH) * 100}%`,
+                        transform: config.curso.centered ? "translateX(-50%)" : "none",
+                        color: config.curso.font.color,
+                        fontFamily: config.curso.font.name.split("-")[0],
+                        fontSize: `${Math.max(config.curso.font.size * 0.6, 8)}px`,
+                        fontWeight: config.curso.font.name.includes("Bold") ? "bold" : "normal",
+                        fontStyle:
+                          config.curso.font.name.includes("Oblique") ||
+                          config.curso.font.name.includes("Italic")
+                            ? "italic"
+                            : "normal",
+                      }}
+                      data-testid="preview-curso"
+                    >
+                      Curso de Artistico Avanzado
+                    </div>
+
+                    {/* Profesor Signature Preview */}
+                    <div
+                      className="absolute border-2 border-dashed border-gray-400 rounded flex items-center justify-center text-gray-500 text-xs bg-gray-50"
+                      style={{
+                        bottom: `${(config["profesor-signature"].y / PREVIEW_HEIGHT) * 100}%`,
+                        left: `${(config["profesor-signature"].x / PREVIEW_WIDTH) * 100}%`,
+                        width: `${(config["profesor-signature"].size / PREVIEW_WIDTH) * 100}%`,
+                        height: `${((config["profesor-signature"].size * 0.6) / PREVIEW_HEIGHT) * 100}%`,
+                      }}
+                      data-testid="preview-profesor-signature"
+                    >
+                      Firma
+                    </div>
+
+                    {/* Profesor Name Preview */}
+                    <div
+                      className="absolute whitespace-nowrap"
+                      style={{
+                        bottom: `${(config.profesor.y / PREVIEW_HEIGHT) * 100}%`,
+                        left: `${((config.profesor.x_range[0] + config.profesor.x_range[1]) / 2 / PREVIEW_WIDTH) * 100}%`,
+                        transform: "translateX(-50%)",
+                        color: config.profesor.font.color,
+                        fontFamily: config.profesor.font.name.split("-")[0],
+                        fontSize: `${Math.max(config.profesor.font.size * 0.6, 8)}px`,
+                        fontWeight: config.profesor.font.name.includes("Bold") ? "bold" : "normal",
+                        fontStyle:
+                          config.profesor.font.name.includes("Oblique") ||
+                          config.profesor.font.name.includes("Italic")
+                            ? "italic"
+                            : "normal",
+                      }}
+                      data-testid="preview-profesor"
+                    >
+                      Dr. Maria Perez Perez
+                    </div>
+
+                    {/* Fecha Preview */}
+                    <div
+                      className="absolute whitespace-nowrap"
+                      style={{
+                        bottom: `${(config.fecha.y / PREVIEW_HEIGHT) * 100}%`,
+                        left: `${(config.fecha.x / PREVIEW_WIDTH) * 100}%`,
+                        color: config.fecha.font.color,
+                        fontFamily: config.fecha.font.name.split("-")[0],
+                        fontSize: `${Math.max(config.fecha.font.size * 0.6, 8)}px`,
+                        fontWeight: config.fecha.font.name.includes("Bold") ? "bold" : "normal",
+                        fontStyle:
+                          config.fecha.font.name.includes("Oblique") ||
+                          config.fecha.font.name.includes("Italic")
+                            ? "italic"
+                            : "normal",
+                      }}
+                      data-testid="preview-fecha"
+                    >
+                      {formattedToday}
+                    </div>
+                  </div>
+
+                  {/* Diploma Border Decoration */}
+                  <div className="absolute inset-3 border-2 border-gray-300 rounded pointer-events-none" />
+                  <div className="absolute inset-5 border border-gray-200 rounded pointer-events-none" />
+                </div>
+
+                {/* JSON Output Preview */}
+                <div className="mt-4">
+                  <Label className="text-sm font-medium mb-2 block">Generated JSON (fieldMappings)</Label>
+                  <pre
+                    className="bg-muted p-3 rounded-md text-xs overflow-x-auto font-mono max-h-64 overflow-y-auto"
+                    data-testid="text-json-output"
+                  >
+                    {JSON.stringify(generateOutputJson(), null, 2)}
+                  </pre>
+                </div>
               </CardContent>
             </Card>
-          ))}
+          </div>
         </div>
-
-        {/* Visual Preview Mockup */}
-        <Card className="h-fit sticky top-8 border-primary/20 bg-paper">
-          <CardHeader>
-            <CardTitle>Prevista Visual</CardTitle>
-            <CardDescription>
-            Visualización aproximada del diseño
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="aspect-[1.414] bg-white border border-border shadow-sm relative overflow-hidden w-full max-w-md mx-auto">
-              {/* Grid Lines */}
-              <div className="absolute inset-0 grid grid-cols-4 grid-rows-4 pointer-events-none opacity-10">
-                <div className="border-r border-black" />
-                <div className="border-r border-black" />
-                <div className="border-r border-black" />
-                <div className="border-r border-black" />
-              </div>
-
-              {fields.map((field) => (
-                <div
-                  key={field.id}
-                  className="absolute border border-dashed border-primary/50 bg-primary/5 text-primary px-2 flex items-center justify-center whitespace-nowrap transition-all duration-300"
-                  style={{
-                    left: `${(field.x / 800) * 100}%`,
-                    top: `${(field.y / 600) * 100}%`,
-                    fontSize:
-                      field.id === "signature"
-                        ? "12px"
-                        : `${field.fontSize / 2}px`, // Scale down for preview
-                    transform: "translate(-50%, -50%)",
-                    width: field.id === "signature" ? "100px" : "auto",
-                    height: field.id === "signature" ? "40px" : "auto",
-                  }}
-                >
-                  {field.id === "signature" ? "[Signature]" : `{${field.label}}`}
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-center text-muted-foreground mt-4">
-             La vista previa está escalada. El resultado real depende del motor de generación de PDF.
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

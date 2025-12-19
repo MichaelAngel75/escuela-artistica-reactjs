@@ -15,7 +15,8 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // 1) Bind everything to your schema
-export const dbSchema = pgSchema(process.env.ACADEMY_DB_SCHEMA || "cat_admin"); // "academy_pohuazlicalli");
+//export const dbSchema = pgSchema(process.env.ACADEMY_DB_SCHEMA || "cat_admin"); // "academy_pohuazlicalli");
+export const dbSchema = pgSchema("cat_admin"); // "academy_pohuazlicalli");
 
 // 2) Enums under that schema
 export const roleEnum = dbSchema.enum("role", [
@@ -179,3 +180,126 @@ export const diplomaBatchesRelations = relations(diplomaBatches, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// -------------------------------------------------------
+
+// Font configuration for PDF generation (Python compatible)
+export const fontSchema = z.object({
+  name: z.string(),
+  size: z.number().min(8).max(48),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color"),
+});
+
+export type FontConfig = z.infer<typeof fontSchema>;
+
+// Field configuration types
+export const estudianteConfigSchema = z.object({
+  y: z.number().min(0),
+  centered: z.boolean(),
+  x: z.number().min(0).optional(),
+  font: fontSchema,
+});
+
+export const cursoConfigSchema = z.object({
+  y: z.number().min(0),
+  centered: z.boolean(),
+  x: z.number().min(0).optional(),
+  font: fontSchema,
+});
+
+export const profesorSignatureConfigSchema = z.object({
+  x: z.number().min(0),
+  y: z.number().min(0),
+  size: z.number().min(50).max(200),
+});
+
+export const profesorConfigSchema = z.object({
+  x_range: z.tuple([z.number().min(0), z.number().min(0)]),
+  y: z.number().min(0),
+  font: fontSchema,
+});
+
+export const fechaConfigSchema = z.object({
+  x: z.number().min(0),
+  y: z.number().min(0),
+  font: fontSchema,
+});
+
+// Complete field mappings schema
+export const fieldMappingsSchema = z.object({
+  estudiante: estudianteConfigSchema,
+  curso: cursoConfigSchema,
+  "profesor-signature": profesorSignatureConfigSchema,
+  profesor: profesorConfigSchema,
+  fecha: fechaConfigSchema,
+});
+
+export type FieldMappings = z.infer<typeof fieldMappingsSchema>;
+
+
+// Diploma configuration table
+export const diplomaConfiguration = dbSchema.table("po_configuration_diploma", {
+  id: serial("id").primaryKey(),
+  fieldMappings: jsonb("field_mappings").notNull().$type<FieldMappings>(),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDiplomaConfigSchema = createInsertSchema(diplomaConfiguration).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDiplomaConfig = z.infer<typeof insertDiplomaConfigSchema>;
+export type DiplomaConfig = typeof diplomaConfiguration.$inferSelect;
+
+
+
+// Default configuration values
+export const defaultFieldMappings: FieldMappings = {
+  estudiante: {
+    y: 300,
+    centered: true,
+    font: { name: "Helvetica-Bold", size: 24, color: "#6D28D9" },
+  },
+  curso: {
+    y: 253,
+    centered: true,
+    font: { name: "Helvetica-Bold", size: 12, color: "#374151" },
+  },
+  "profesor-signature": {
+    x: 442,
+    y: 100,
+    size: 125,
+  },
+  profesor: {
+    x_range: [433, 573],
+    y: 97,
+    font: { name: "Helvetica", size: 12, color: "#000000" },
+  },
+  fecha: {
+    x: 418,
+    y: 25,
+    font: { name: "Helvetica", size: 12, color: "#000000" },
+  },
+};
+
+// Python-compatible PDF fonts
+export const AVAILABLE_FONTS = [
+  "Helvetica",
+  "Helvetica-Bold",
+  "Helvetica-Oblique",
+  "Helvetica-BoldOblique",
+  "Times-Roman",
+  "Times-Bold",
+  "Times-Italic",
+  "Times-BoldItalic",
+  "Courier",
+  "Courier-Bold",
+  "Courier-Oblique",
+  "Courier-BoldOblique",
+] as const;
+
+export type AvailableFont = typeof AVAILABLE_FONTS[number];

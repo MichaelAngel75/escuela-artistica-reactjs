@@ -172,17 +172,6 @@ def fecha_a_espanol(fecha_str: str) -> str:
     # If it doesn't match any known date format, return as-is
     return fecha_str
 
-
-# def fecha_a_espanol(fecha_str: str) -> str:
-#     meses = [
-#         "enero", "febrero", "marzo", "abril", "mayo", "junio",
-#         "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
-#     ]
-#     fecha = datetime.strptime(fecha_str, "%Y-%m-%d")
-#     mes = meses[fecha.month - 1]
-#     return f"{mes} de {fecha.year}"
-
-
 def clean_name(name: str) -> str:
     normalized = unicodedata.normalize("NFD", name)
     cleaned = "".join(c for c in normalized if unicodedata.category(c) != "Mn")

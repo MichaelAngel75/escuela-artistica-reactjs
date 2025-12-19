@@ -1,5 +1,5 @@
 {
-    "nombre": {
+    "estudiante": {
       "y": 300,
       "centered": true,
       "font": { "name": "Helvetica-Bold", "size": 24, "color": "#6D28D9" }
