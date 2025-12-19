@@ -1,0 +1,52 @@
+python3 -m venv .venvPohualizcalli
+
+source .venvPohualizcalli/bin/activate
+
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+
+-----------------------
+
+
+python -m ensurepip --upgrade
+python -m pip -V
+python -m pip install -r requirements.txt
+
+python - <<EOF
+from PyPDF2 import PdfReader, PdfWriter
+print("PyPDF2 OK")
+EOF
+
+
+
+_______________________
+(.venvPohualizcalli) infinite_cosmos@kali:~/Documents/projects/Escuela-Pohualizcalli/pohualizcalli-new-reactjs/XXX_diplomas-generados-files$ python -m ensurepip --upgrade
+Looking in links: /tmp/tmpryud_h6v
+Requirement already satisfied: pip in /opt/PythonInstalled/lib/python3.12/site-packages (25.3)
+(.venvPohualizcalli) infinite_cosmos@kali:~/Documents/projects/Escuela-Pohualizcalli/pohualizcalli-new-reactjs/XXX_diplomas-generados-files$ python -m pip -V
+pip 25.3 from /opt/PythonInstalled/lib/python3.12/site-packages/pip (python 3.12)
+(.venvPohualizcalli) infinite_cosmos@kali:~/Documents/projects/Escuela-Pohualizcalli/pohualizcalli-new-reactjs/XXX_diplomas-generados-files$ python -m pip install -r requirements.txt
+Requirement already satisfied: pandas<3,>=2.2.0 in /opt/PythonInstalled/lib/python3.12/site-packages (from -r requirements.txt (line 1)) (2.2.1)
+Collecting PyPDF2<4,>=3.0.1 (from -r requirements.txt (line 2))
+  Using cached pypdf2-3.0.1-py3-none-any.whl.metadata (6.8 kB)
+Collecting reportlab<5,>=4.2.0 (from -r requirements.txt (line 3))
+  Using cached reportlab-4.4.6-py3-none-any.whl.metadata (1.7 kB)
+Requirement already satisfied: numpy<2,>=1.26.0 in /opt/PythonInstalled/lib/python3.12/site-packages (from pandas<3,>=2.2.0->-r requirements.txt (line 1)) (1.26.4)
+Requirement already satisfied: python-dateutil>=2.8.2 in /opt/PythonInstalled/lib/python3.12/site-packages (from pandas<3,>=2.2.0->-r requirements.txt (line 1)) (2.9.0.post0)
+Requirement already satisfied: pytz>=2020.1 in /opt/PythonInstalled/lib/python3.12/site-packages (from pandas<3,>=2.2.0->-r requirements.txt (line 1)) (2024.1)
+Requirement already satisfied: tzdata>=2022.7 in /opt/PythonInstalled/lib/python3.12/site-packages (from pandas<3,>=2.2.0->-r requirements.txt (line 1)) (2024.1)
+Requirement already satisfied: pillow>=9.0.0 in /opt/PythonInstalled/lib/python3.12/site-packages (from reportlab<5,>=4.2.0->-r requirements.txt (line 3)) (10.3.0)
+Requirement already satisfied: charset-normalizer in /opt/PythonInstalled/lib/python3.12/site-packages (from reportlab<5,>=4.2.0->-r requirements.txt (line 3)) (3.3.2)
+Requirement already satisfied: six>=1.5 in /opt/PythonInstalled/lib/python3.12/site-packages (from python-dateutil>=2.8.2->pandas<3,>=2.2.0->-r requirements.txt (line 1)) (1.16.0)
+Using cached pypdf2-3.0.1-py3-none-any.whl (232 kB)
+Using cached reportlab-4.4.6-py3-none-any.whl (2.0 MB)
+Installing collected packages: reportlab, PyPDF2
+Successfully installed PyPDF2-3.0.1 reportlab-4.4.6
+(.venvPohualizcalli) infinite_cosmos@kali:~/Documents/projects/Escuela-Pohualizcalli/pohualizcalli-new-reactjs/XXX_diplomas-generados-files$ python - <<EOF
+> from PyPDF2 import PdfReader, PdfWriter
+> print("PyPDF2 OK")
+> EOF
+PyPDF2 OK
+
+
