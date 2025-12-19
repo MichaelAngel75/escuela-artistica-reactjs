@@ -9,8 +9,11 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.lib.pagesizes import letter
 from datetime import datetime
 import os
+# --- to attached image on pdf
 from reportlab.lib.utils import ImageReader
-
+# --- for transparency
+from io import BytesIO
+from PIL import Image
 
 # --------------------------------------------------------
 # Lambda:
@@ -33,6 +36,40 @@ from reportlab.lib.utils import ImageReader
 
 # Get the total width of the page
 page_width = letter[0]
+
+
+
+def image_to_png_bytes_with_transparency(path: str, bg_threshold: int = 245) -> BytesIO:
+    """
+    Loads an image (GIF/PNG/JPG), converts to RGBA, and makes near-white pixels transparent.
+    Returns a BytesIO containing PNG bytes.
+    """
+    im = Image.open(path)
+
+    # If GIF has multiple frames, take the first frame
+    try:
+        im.seek(0)
+    except Exception:
+        pass
+
+    im = im.convert("RGBA")
+    pixels = im.getdata()
+
+    new_pixels = []
+    for r, g, b, a in pixels:
+        # treat near-white as background -> transparent
+        if r >= bg_threshold and g >= bg_threshold and b >= bg_threshold:
+            new_pixels.append((r, g, b, 0))
+        else:
+            new_pixels.append((r, g, b, a))
+
+    im.putdata(new_pixels)
+
+    out = BytesIO()
+    im.save(out, format="PNG")
+    out.seek(0)
+    return out
+
 
 def centered_x_in_range(text: str, x_min: float, x_max: float, font_name: str, font_size: float) -> float:
     """
@@ -136,15 +173,20 @@ def agregar_datos_a_certificado(template_pdf, csv_file, posiciones):
 
         # =============================================================================
         # ----   F I R M A   (GIF) --------------------
-        sig_x, sig_y = posiciones["profesor-signature"]
-        sig_size = 125  # 30x30 square (points)
+        sig_x, sig_y, sig_size = posiciones["profesor-signature"]
+        # sig_size = 125  # 30x30 square (points)
 
         try:
             # If image_firma_gif is a local path like "firmas/michael_torres.gif"
             if not os.path.exists(image_firma_gif):
                 raise FileNotFoundError(f"Signature image not found: {image_firma_gif}")
 
-            img = ImageReader(image_firma_gif)
+            # ---- Using Transparency ------
+            # Convert to transparent PNG bytes for reliable transparency
+            png_bytes = image_to_png_bytes_with_transparency(image_firma_gif, bg_threshold=245)
+            img = ImageReader(png_bytes)
+            # ---- No using Transparency  -----
+            # img = ImageReader(image_firma_gif)
 
             # mask="auto" tries to treat a background color as transparent (best-effort)
             c.drawImage(
@@ -165,13 +207,10 @@ def agregar_datos_a_certificado(template_pdf, csv_file, posiciones):
         # Estilo para la fecha (predeterminado)
         # PROFESOR (centered in x-range)
         prof_font = "Helvetica"
-        prof_size = 12
-
+        prof_size = 12 # Tamaño regular
         c.setFont(prof_font, prof_size)
-        c.setFillColor("black")  
+        c.setFillColor("black")   # Color negro
 
-        # c.setFont("Helvetica", 12)     # Tamaño regular
-        # c.setFillColor("black")        # Color negro
         (x_min, x_max), y_prof = posiciones["profesor"]
         x_prof = centered_x_in_range(profesor, x_min, x_max, prof_font, prof_size)
         c.drawString(x_prof, y_prof, profesor)
@@ -213,9 +252,9 @@ csv_file = "diploma-datos.csv"         # Archivo CSV con los datos
 
 # Posiciones (en puntos, desde la esquina inferior izquierda de la página)
 posiciones = {
-    "nombre": (190, 300),  # Posición del nombre          (x, y)
-    "curso": (280, 253),   # Posición del curso/taller    (x, y)
-    "profesor-signature": (442, 100),  # Position nombre profesor   (x, y)  take both values
+    "nombre": (190, 300),  # Posición del nombre          (x, y)  ==> only uses Y (since X is just a centering)
+    "curso": (280, 253),   # Posición del curso/taller    (x, y)  ==> only uses Y (since X is just a centering)
+    "profesor-signature": (442, 100, 125),  # Position nombre profesor   (x, y)  take both values
     "profesor": ((433, 573), 97),  # Position nombre profesor   Minimum: (433-573, 97) Maximum: (404-602, 97) take both values  x 610 is cutting the letter
     "fecha": (418, 25)    # Posición de la fecha         (x, y)  take both values
 }
