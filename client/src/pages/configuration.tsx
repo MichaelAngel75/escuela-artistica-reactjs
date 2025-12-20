@@ -65,6 +65,28 @@ function sectionAccentClasses(section: "estudiante" | "curso" | "profesor-signat
   return `${base} ${map[section]}`;
 }
 
+function sectionContentClasses(
+  section: "estudiante" | "curso" | "profesor-signature" | "profesor" | "fecha",
+) {
+  // Lighter than header; subtle tint and soft border separation
+  const base = "px-4 py-4 border-t";
+
+  const map: Record<typeof section, string> = {
+    estudiante:
+      "bg-violet-50/30 border-violet-200/40 dark:bg-violet-950/10 dark:border-violet-900/30",
+    curso:
+      "bg-sky-50/30 border-sky-200/40 dark:bg-sky-950/10 dark:border-sky-900/30",
+    "profesor-signature":
+      "bg-amber-50/30 border-amber-200/40 dark:bg-amber-950/10 dark:border-amber-900/30",
+    profesor:
+      "bg-fuchsia-50/30 border-fuchsia-200/45 dark:bg-fuchsia-950/10 dark:border-fuchsia-900/35",
+    fecha:
+      "bg-emerald-50/30 border-emerald-200/40 dark:bg-emerald-950/10 dark:border-emerald-900/30",
+  };
+
+  return `${base} ${map[section]}`;
+}
+
 
 
 /// --- date previou 
@@ -174,7 +196,7 @@ function FontInputGroup({
 
         {/* Color */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Color (Hex)</Label>
+          <Label className="text-xs text-muted-foreground">Color (# Hex Number)</Label>
           <div className="flex items-center gap-2">
             <Input
               type="text"
@@ -572,7 +594,8 @@ export default function Configuration() {
                       <span className="font-bold">Nombre de Alumno</span>
                     </div>                    
                   </AccordionTrigger>
-                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                  {/* <AccordionContent className="px-4 py-4 bg-card border-t"> */}
+                  <AccordionContent className={sectionContentClasses("estudiante")}>
                     <div className="space-y-4">
                       {/* Centered Toggle */}
                       <div className="flex items-center justify-between">
@@ -640,7 +663,8 @@ export default function Configuration() {
                       <span className="font-bold">Nombre de Curso</span>
                     </div>                      
                   </AccordionTrigger>
-                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                  {/* <AccordionContent className="px-4 py-4 bg-card border-t"> */}
+                  <AccordionContent className={sectionContentClasses("curso")}>
                     <div className="space-y-4">
                       {/* Centered Toggle */}
                       <div className="flex items-center justify-between">
@@ -703,7 +727,8 @@ export default function Configuration() {
                       <span className="font-bold">Firma del Profesor</span>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                  {/* <AccordionContent className="px-4 py-4 bg-card border-t"> */}
+                  <AccordionContent className={sectionContentClasses("profesor-signature")}>
                     <div className="space-y-4">
                       {/* Position Controls */}
                       <div className="grid grid-cols-2 gap-3">
@@ -759,7 +784,8 @@ export default function Configuration() {
                       <span className="font-bold">Nombre del Profesor</span>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                  {/* <AccordionContent className="px-4 py-4 bg-card border-t"> */}
+                  <AccordionContent className={sectionContentClasses("profesor")}>
                     <div className="space-y-4">
                       {/* X Range Controls */}
                       <div className="space-y-1.5">
@@ -838,7 +864,8 @@ export default function Configuration() {
                       <span className="font-bold">Fecha</span>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="px-4 py-4 bg-card border-t">
+                  {/* <AccordionContent className="px-4 py-4 bg-card border-t"> */}
+                  <AccordionContent className={sectionContentClasses("fecha")}>
                     <div className="space-y-4">
                       {/* Position Controls */}
                       <div className="grid grid-cols-2 gap-3">
