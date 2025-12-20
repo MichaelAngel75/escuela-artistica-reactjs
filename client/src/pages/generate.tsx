@@ -151,7 +151,7 @@ export default function GeneratePage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-serif font-bold text-primary">Diplomas Generados</h1>
-            <p className="text-muted-foreground">Histórico de procesos (backend)</p>
+            <p className="text-muted-foreground">Histórico de procesos</p>
           </div>
           <Button onClick={() => setView("upload")} className="gap-2">
             <FileUp className="w-4 h-4" /> Nuevo Proceso

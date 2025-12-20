@@ -63,7 +63,7 @@ const MOCK_USERS: User[] = [
   {
     id: '1',
     name: 'Admin User',
-    email: 'admin@poluazticali.edu',
+    email: 'admin@Pohualizcalli.edu',
     photoUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin',
     role: 'sys_admin',
     googleId: 'google-123'
@@ -71,7 +71,7 @@ const MOCK_USERS: User[] = [
   {
     id: '2',
     name: 'School Services',
-    email: 'services@poluazticali.edu',
+    email: 'services@Pohualizcalli.edu',
     photoUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Services',
     role: 'servicios_escolares',
     googleId: 'google-456'
@@ -79,7 +79,7 @@ const MOCK_USERS: User[] = [
   {
     id: '3',
     name: 'Professor Smith',
-    email: 'smith@poluazticali.edu',
+    email: 'smith@Pohualizcalli.edu',
     photoUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Smith',
     role: 'professor',
     googleId: 'google-789'

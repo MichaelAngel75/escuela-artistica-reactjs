@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
-import logoImage from "@assets/generated_images/academic_logo_for_poluazticali.png";
+import logoImage from "@assets/generated_images/academic_logo_for_Pohualizcalli.png";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
@@ -35,10 +35,10 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl border-t-4 border-t-primary">
         <CardHeader className="text-center space-y-4 pb-8">
           <div className="mx-auto w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-2">
-             <img src={logoImage} alt="Poluazticali" className="w-12 h-12 object-contain" />
+             <img src={logoImage} alt="Pohualizcalli" className="w-12 h-12 object-contain" />
           </div>
           <div className="space-y-2">
-            <CardTitle className="text-3xl font-serif text-primary">Poluazticali</CardTitle>
+            <CardTitle className="text-3xl font-serif text-primary">Pohualizcalli</CardTitle>
             <CardDescription className="text-base">
               Generacion de Diplomas
             </CardDescription>
@@ -46,7 +46,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center text-sm text-muted-foreground mb-4">
-            Please sign in with your institutional account
+            Ingresa con tu email
           </div>
           
           <Button 

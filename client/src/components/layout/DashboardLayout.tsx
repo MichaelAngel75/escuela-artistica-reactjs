@@ -23,7 +23,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import logoImage from "@assets/generated_images/academic_logo_for_poluazticali.png";
+import logoImage from "@assets/generated_images/academic_logo_for_Pohualizcalli.png";
 
 type Props = { children: React.ReactNode };
 
@@ -119,11 +119,11 @@ export default function DashboardLayout({ children }: Props) {
       <div className="p-6 flex items-center gap-3 border-b border-sidebar-border/50">
         <img
           src={logoImage}
-          alt="Poluazticali Logo"
+          alt="Pohualizcalli Logo"
           className="w-8 h-8 object-contain bg-white rounded-sm"
         />
         <span className="text-xl font-serif font-bold tracking-tight">
-          Poluazticali
+          Pohualizcalli
         </span>
       </div>
 
@@ -264,7 +264,7 @@ export default function DashboardLayout({ children }: Props) {
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 border-b bg-sidebar z-50 flex items-center justify-between px-4">
         <div className="flex items-center gap-2 text-sidebar-foreground">
           <img src={logoImage} alt="Logo" className="w-6 h-6 bg-white rounded-sm" />
-          <span className="font-serif font-bold">Poluazticali</span>
+          <span className="font-serif font-bold">Pohualizcalli</span>
         </div>
 
         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>

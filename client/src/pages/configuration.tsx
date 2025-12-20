@@ -29,14 +29,50 @@ import {
 } from "@shared/schema";
 import { Save, RotateCcw, User, GraduationCap, PenTool, Calendar, UserCircle, AlertCircle } from "lucide-react";
 
-const date = new Date();
 
+// --- title collapsable different colors styles:
+function sectionHeaderClasses(section: "estudiante" | "curso" | "profesor-signature" | "profesor" | "fecha") {
+  // Subtle tinted backgrounds + border that work in light/dark
+  const base =
+    "px-4 py-3 hover:no-underline rounded-t-lg border-b " +
+    "transition-colors data-[state=open]:rounded-b-none " +
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+  const map: Record<typeof section, string> = {
+    estudiante:
+      "bg-violet-50/60 text-foreground border-violet-200/60 dark:bg-violet-950/25 dark:border-violet-900/40",
+    curso:
+      "bg-sky-50/60 text-foreground border-sky-200/60 dark:bg-sky-950/25 dark:border-sky-900/40",
+    "profesor-signature":
+      "bg-amber-50/60 text-foreground border-amber-200/60 dark:bg-amber-950/25 dark:border-amber-900/40",
+    profesor:
+      "bg-emerald-50/60 text-foreground border-emerald-200/60 dark:bg-emerald-950/25 dark:border-emerald-900/40",
+    fecha:
+      "bg-slate-50/60 text-foreground border-slate-200/60 dark:bg-slate-950/25 dark:border-slate-800/60",
+  };
+  return `${base} ${map[section]}`;
+}
+
+function sectionAccentClasses(section: "estudiante" | "curso" | "profesor-signature" | "profesor" | "fecha") {
+  // Thin left accent bar (optional but nice)
+  const base = "w-1.5 h-5 rounded-full";
+  const map: Record<typeof section, string> = {
+    estudiante: "bg-violet-400/70 dark:bg-violet-500/60",
+    curso: "bg-sky-400/70 dark:bg-sky-500/60",
+    "profesor-signature": "bg-amber-400/70 dark:bg-amber-500/60",
+    profesor: "bg-emerald-400/70 dark:bg-emerald-500/60",
+    fecha: "bg-slate-400/70 dark:bg-slate-500/60",
+  };
+  return `${base} ${map[section]}`;
+}
+
+
+
+/// --- date previou 
+const date = new Date();
 const day = date.getDate();
 const year = date.getFullYear();
-
 const month = date.toLocaleString("es-ES", { month: "long" });
 const monthCapitalized = month.charAt(0).toUpperCase() + month.slice(1);
-
 const formattedToday = `${day} de ${monthCapitalized}, ${year}`;
 
 
@@ -522,12 +558,19 @@ export default function Configuration() {
                 className="space-y-3"
               >
                 {/* Estudiante Configuration */}
-                <AccordionItem value="estudiante" className="border rounded-lg overflow-visible">
-                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
-                    <div className="flex items-center gap-2">
+                {/* <AccordionItem value="estudiante" className="border rounded-lg overflow-visible"> */}
+                <AccordionItem value="estudiante" className="border rounded-lg overflow-hidden bg-card">
+                  {/* <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline"> */}
+                  <AccordionTrigger className={sectionHeaderClasses("estudiante")}>
+                    {/* <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">Nombre de Alumno</span>
-                    </div>
+                      <span className="font-bold">Nombre de Alumno</span>
+                    </div> */}
+                    <div className="flex items-center gap-2">
+                      <span className={sectionAccentClasses("estudiante")} />
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-bold">Nombre de Alumno</span>
+                    </div>                    
                   </AccordionTrigger>
                   <AccordionContent className="px-4 py-4 bg-card border-t">
                     <div className="space-y-4">
@@ -583,12 +626,19 @@ export default function Configuration() {
                 </AccordionItem>
 
                 {/* Curso Configuration */}
-                <AccordionItem value="curso" className="border rounded-lg overflow-visible">
-                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
-                    <div className="flex items-center gap-2">
+                {/* <AccordionItem value="curso" className="border rounded-lg overflow-visible"> */}
+                <AccordionItem value="curso" className="border rounded-lg overflow-hidden bg-card">
+                  {/* <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline"> */}
+                  <AccordionTrigger className={sectionHeaderClasses("curso")}>
+                    {/* <div className="flex items-center gap-2">
                       <GraduationCap className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">Nombre del Curso</span>
-                    </div>
+                      <span className="font-bold">Nombre del Curso</span>
+                    </div> */}
+                    <div className="flex items-center gap-2">
+                      <span className={sectionAccentClasses("curso")} />
+                      <GraduationCap className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-bold">Nombre de Curso</span>
+                    </div>                      
                   </AccordionTrigger>
                   <AccordionContent className="px-4 py-4 bg-card border-t">
                     <div className="space-y-4">
@@ -644,11 +694,13 @@ export default function Configuration() {
                 </AccordionItem>
 
                 {/* Profesor Signature Configuration */}
-                <AccordionItem value="profesor-signature" className="border rounded-lg overflow-visible">
-                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
+                <AccordionItem value="profesor-signature" className="border rounded-lg overflow-hidden bg-card">
+                  {/* <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline"> */}
+                  <AccordionTrigger className={sectionHeaderClasses("profesor-signature")}>
                     <div className="flex items-center gap-2">
+                      <span className={sectionAccentClasses("profesor-signature")} />
                       <PenTool className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">Firma del Profesor</span>
+                      <span className="font-bold">Firma del Profesor</span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 py-4 bg-card border-t">
@@ -698,11 +750,13 @@ export default function Configuration() {
                 </AccordionItem>
 
                 {/* Profesor Name Configuration */}
-                <AccordionItem value="profesor" className="border rounded-lg overflow-visible">
-                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
+                <AccordionItem value="profesor" className="border rounded-lg overflow-hidden bg-card">
+                  {/* <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline"> */}
+                  <AccordionTrigger className={sectionHeaderClasses("profesor")}>
                     <div className="flex items-center gap-2">
+                      <span className={sectionAccentClasses("profesor")} />
                       <UserCircle className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">Nombre del Profesor</span>
+                      <span className="font-bold">Nombre del Profesor</span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 py-4 bg-card border-t">
@@ -775,11 +829,13 @@ export default function Configuration() {
                 </AccordionItem>
 
                 {/* Fecha Configuration */}
-                <AccordionItem value="fecha" className="border rounded-lg overflow-visible">
-                  <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline">
+                <AccordionItem value="fecha" className="border rounded-lg overflow-hidde bg-card">
+                  {/* <AccordionTrigger className="px-4 py-3 bg-card hover:no-underline"> */}
+                  <AccordionTrigger className={sectionHeaderClasses("fecha")}>
                     <div className="flex items-center gap-2">
+                    <span className={sectionAccentClasses("fecha")} />
                       <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">Fecha</span>
+                      <span className="font-bold">Fecha</span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-4 py-4 bg-card border-t">
@@ -957,7 +1013,7 @@ export default function Configuration() {
                 </div>
 
                 {/* JSON Output Preview */}
-                <div className="mt-4">
+                {/* <div className="mt-4">
                   <Label className="text-sm font-medium mb-2 block">Generated JSON (fieldMappings)</Label>
                   <pre
                     className="bg-muted p-3 rounded-md text-xs overflow-x-auto font-mono max-h-64 overflow-y-auto"
@@ -965,7 +1021,7 @@ export default function Configuration() {
                   >
                     {JSON.stringify(generateOutputJson(), null, 2)}
                   </pre>
-                </div>
+                </div> */}
               </CardContent>
             </Card>
           </div>

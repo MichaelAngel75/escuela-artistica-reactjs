@@ -1,4 +1,4 @@
-Brand name logo related to schools: 'poluazticali'
+Brand name logo related to schools: 'Pohualizcalli'
 Login should be using Google oath, if the use is not on DB users table add it along with photo url, google id everything without any role but don't allow it to log it unless as a valid role
 Crear ReactJS app front end with back end on python deployed on flask exposing endpoints, python back end should connect to database and AWS S3, 
 React js menus and tables should considered pagination, show records: 10,20,30,40, go first, next, previous , last, also searching capabilities and clear filters and everything compatible to big screens and small devices. 
