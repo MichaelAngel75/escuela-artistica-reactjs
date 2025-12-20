@@ -45,9 +45,9 @@ function sectionHeaderClasses(section: "estudiante" | "curso" | "profesor-signat
     "profesor-signature":
       "bg-amber-50/60 text-foreground border-amber-200/60 dark:bg-amber-950/25 dark:border-amber-900/40",
     profesor:
-      "bg-emerald-50/60 text-foreground border-emerald-200/60 dark:bg-emerald-950/25 dark:border-emerald-900/40",
+    "bg-fuchsia-50/70 text-foreground border-fuchsia-200/70 dark:bg-fuchsia-950/25 dark:border-fuchsia-900/45",
     fecha:
-      "bg-slate-50/60 text-foreground border-slate-200/60 dark:bg-slate-950/25 dark:border-slate-800/60",
+    "bg-emerald-50/60 text-foreground border-emerald-200/60 dark:bg-emerald-950/25 dark:border-emerald-900/40",
   };
   return `${base} ${map[section]}`;
 }
@@ -59,8 +59,8 @@ function sectionAccentClasses(section: "estudiante" | "curso" | "profesor-signat
     estudiante: "bg-violet-400/70 dark:bg-violet-500/60",
     curso: "bg-sky-400/70 dark:bg-sky-500/60",
     "profesor-signature": "bg-amber-400/70 dark:bg-amber-500/60",
-    profesor: "bg-emerald-400/70 dark:bg-emerald-500/60",
-    fecha: "bg-slate-400/70 dark:bg-slate-500/60",
+    profesor: "bg-fuchsia-500/80 dark:bg-fuchsia-400/70",
+    fecha: "bg-emerald-400/70 dark:bg-emerald-500/60",  
   };
   return `${base} ${map[section]}`;
 }
