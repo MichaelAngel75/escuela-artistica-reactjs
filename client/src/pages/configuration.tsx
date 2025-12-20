@@ -233,10 +233,25 @@ export default function Configuration() {
   const { toast } = useToast();
   const [config, setConfig] = useState<FieldMappings>(defaultFieldMappings);
 
-  // Fetch existing configuration
-  const { data: savedConfig, isLoading, isError, error } = useQuery<{ fieldMappings: FieldMappings }>({
+  // // Fetch existing configuration
+  // const { data: savedConfig, isLoading, isError, error } = useQuery<{ fieldMappings: FieldMappings }>({
+  //   queryKey: ["/api/configuration"],
+  // });
+
+  const {
+    data: savedConfig,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery<{ fieldMappings: FieldMappings }>({
     queryKey: ["/api/configuration"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
+  
 
   useEffect(() => {
     if (savedConfig?.fieldMappings) {
@@ -247,17 +262,18 @@ export default function Configuration() {
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async (data: FieldMappings) => {
-      return apiRequest("POST", "/api/configuration", { fieldMappings: data });
+      return apiRequest("PUT", "/api/configuration", { fieldMappings: data });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["/api/configuration"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/configuration"] });
       toast({
         title: "Configuracion Guardada",
         description: "Configuraciones de Diploma guardada exitosamente.",
         variant: "success",
       });
     },
-    onError: () => {
+    onError: async (err: any) => {
       toast({
         title: "Error",
         description: "Failed to save configuration. Please try again.",
@@ -265,6 +281,27 @@ export default function Configuration() {
       });
     },
   });
+  
+  // const saveMutation = useMutation({
+  //   mutationFn: async (data: FieldMappings) => {
+  //     return apiRequest("POST", "/api/configuration", { fieldMappings: data });
+  //   },
+  //   onSuccess: () => {
+  //     queryClient.invalidateQueries({ queryKey: ["/api/configuration"] });
+  //     toast({
+  //       title: "Configuracion Guardada",
+  //       description: "Configuraciones de Diploma guardada exitosamente.",
+  //       variant: "success",
+  //     });
+  //   },
+  //   onError: () => {
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to save configuration. Please try again.",
+  //       variant: "destructive",
+  //     });
+  //   },
+  // });
 
   // Validate configuration before saving
   const validateConfig = (): boolean => {
@@ -321,7 +358,7 @@ export default function Configuration() {
         profesor: config.profesor,
         fecha: config.fecha,
       };
-      saveMutation.mutate(outputConfig);
+      saveMutation.mutate(config);
     }
   };
 
