@@ -527,7 +527,7 @@ export default function Configuration() {
       <header className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
           <h1 className="text-xl font-semibold" data-testid="text-page-title">
-            Diploma Configuration
+            Configuracion del Diploma
           </h1>
           <div className="flex items-center gap-2">
             <Button
