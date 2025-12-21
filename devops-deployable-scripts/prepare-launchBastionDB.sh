@@ -17,3 +17,8 @@
 #     how to validate SSM is intalled:   
 #           amazon) :   sudo systemctl status amazon-ssm-agent
 #           ubuntu):    sudo status amazon-ssm-agent
+
+
+# ------------------------------------------
+##  ssh tunneling
+# ssh -i /opt/security/pohualizcalli-ec2-key-pair.pem -N -L 35998:mabel-rescue-pohualizcalli-db-instance.cbiukbm2byhd.us-east-1.rds.amazonaws.com:5432 ec2-user@44.204.110.110

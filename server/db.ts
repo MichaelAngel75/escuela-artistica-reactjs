@@ -26,6 +26,7 @@ let pool: Pool | null = null;
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 async function ensureConnectionString(): Promise<string> {
+  console.log("::: debug ::: process.env.ACADEMY_DATABASE_URL: ", process.env.ACADEMY_DATABASE_URL);
   if (process.env.ACADEMY_DATABASE_URL) {
     return process.env.ACADEMY_DATABASE_URL;
   }

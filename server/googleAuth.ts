@@ -17,8 +17,8 @@ export async function getSession() {
     pool,
     createTableIfMissing: false,
     ttl: sessionTtl,
-    tableName: "po_sessions",
-    schemaName: process.env.DB_SCHEMA
+    tableName: "sessions",
+    schemaName: process.env.ACADEMY_DB_SCHEMA
   });
 
   return session({
