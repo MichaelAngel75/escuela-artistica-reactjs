@@ -149,9 +149,27 @@ export class DatabaseStorage implements IStorage {
 
   async getActiveTemplate(): Promise<Template | undefined> {
     const db = await getDb();
-    const [template] = await db.select().from(templates).where(eq(templates.status, "Active"));
+    const [template] = await db
+      .select()
+      .from(templates)
+      .where(eq(templates.status, "Active"))
+      .limit(1);
+  
     return template;
   }
+
+  // async getActiveTemplateInternalCall() {
+  //   // adjust according to your actual schema/columns
+  //   const db = await getDb();
+  //   const [template] = await db
+  //     .select()
+  //     .from(templates)
+  //     .where(eq(templates.status, "Active"))
+  //     .limit(1);
+  
+  //   return template ?? null;
+  // }
+  
 
   async createTemplate(templateData: InsertTemplate): Promise<Template> {
     const db = await getDb();

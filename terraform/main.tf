@@ -271,6 +271,14 @@ resource "aws_ecs_task_definition" "pohualizcalli_task" {
           name  = "ACADEMY_RESOURCES_DOMAIN"
           value = data.aws_ssm_parameter.academy_resources_domain.value
         },
+        {
+          name  = "ACADEMY_INTERNAL_API_HEADER"
+          value = data.aws_ssm_parameter.academy_internal_api_header.value
+        },
+        {
+          name  = "ACADEMY_API_KEY_INTERNAL_CALL_PARAM_NAME"
+          value = data.aws_ssm_parameter.academy_internal_api_key_param_name.value
+        },        
         # {
         #   name     = "DB_SECRET_MANAGER",
         #   value    = data.aws_ssm_parameter.aws_db_secret_manager.value

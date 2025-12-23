@@ -1,4 +1,20 @@
 """
+curl -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' http://localhost:5000/internal/signatures
+curl -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' http://localhost:5000/internal/templates/active
+
+curl -X POST 'http://localhost:5000/internal/reload-api-key' \
+  -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@'
+
+curl -X PATCH 'http://localhost:5000/internal/diploma-batches/1' \
+  -H 'Content-Type: application/json' \
+  -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' \
+  -d '{
+    "status": "completado",
+    "totalRecords": 0
+  }'
+
+
+
 AWS Lambda function for diploma PDF generation.
 
 This Lambda reads CSV data from S3, generates individual diploma PDFs using a template,
@@ -19,6 +35,13 @@ Event Structure:
         "batch_id": "batch_123",
         "callback_url": "https://api.example.com/webhook" (optional)
     }
+
+Endpoint to retrieve all available signatures
+Endpoint to retrieve the only active empty template
+Endpoint to retrieve information on the process
+Update different values on the process
+
+
 """
 
 import os

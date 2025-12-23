@@ -3,6 +3,16 @@ set -euo pipefail
 
 rm -rf package-lock.json node_modules
 
+# # --------------------------------------------------------------------------------------------------------
+# echo "the following were missing --sudo enable docker, sudo usermod -aG docker, newgrp docker, "
+# sudo systemctl enable --now docker
+# sudo usermod -aG docker ec2-user
+# newgrp docker
+# # --- Following is to validate
+# #  docker ps
+# # --------------------------------------------------------------------------------------------------------
+
+
 ########################################
 # Paths & Root Detection
 ########################################
@@ -91,9 +101,18 @@ echo 'current directory before yarn install'
 ########################################
 # STEP 2: Docker build / tag / push
 ########################################
+# --------------------------------------------------------------------------------------------------------
+# echo "the following were missing --sudo enable docker, sudo usermod -aG docker, newgrp docker, "
+# sudo systemctl enable --now docker
+# sudo usermod -aG docker ec2-user
+# newgrp docker
+# --- Following is to validate
+#  docker ps
+# --------------------------------------------------------------------------------------------------------
+
+
 
 echo "===== STEP 2: Docker login → build → tag → push ====="
-
 aws ecr get-login-password \
   --region "${AWS_REGION}" \
   --profile "${AWS_PROFILE}" \

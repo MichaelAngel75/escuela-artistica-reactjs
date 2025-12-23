@@ -1,3 +1,33 @@
+// # -----------------------------------------------------------------------------------------------------
+// # ---- Examples to call api internal endpoints:
+// # curl -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' http://localhost:5000/internal/signatures
+// # curl -H 'api-key-pohualizcalli: adios-mUNDO-COMO-3mejor-esto!@' https://admin.pohualizcalli.link/internal/signatures
+// -------------------------------------------------------------------------------------------------
+// # curl -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' http://localhost:5000/internal/templates/active
+// # curl -H 'api-key-pohualizcalli: adios-mUNDO-COMO-3mejor-esto!@' https://admin.pohualizcalli.link/internal/templates/active
+// -------------------------------------------------------------------------------------------------
+// # curl -X POST 'http://localhost:5000/internal/reload-api-key' \
+// #   -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@'
+// curl -X POST 'https://admin.pohualizcalli.link/internal/reload-api-key' \
+//   -H 'api-key-pohualizcalli: adios-mUNDO-COMO-3mejor-esto!@'
+// -------------------------------------------------------------------------------------------------
+//  curl -X PATCH 'http://localhost:5000/internal/diploma-batches/1' \
+//    -H 'Content-Type: application/json' \
+//    -H 'api-key-pohualizcalli: adios-mUNDO-COMO-3mejor-esto!@' \
+//    -d '{
+//      "status": "completado",
+//      "totalRecords": 3
+//    }'
+//   curl -X PATCH 'https://admin.pohualizcalli.link/internal/diploma-batches/1' \
+//     -H 'Content-Type: application/json' \
+//     -H 'api-key-pohualizcalli: adios-mUNDO-COMO-3mejor-esto!@' \
+//     -d '{
+//       "status": "completado",
+//       "totalRecords": 1
+//     }'
+// //  -----------------------------------------------------------------------------------------------------
+
+
 /// --- NAT (EC2 - Other ==> )
 // there's 4 dollar for group  type:  EC2: Data Transfer - Inter AZ,  
 //         1.59 usd  on EC2: EBS - SSD(gp2),  
@@ -59,13 +89,155 @@ import { buildSignatureKey, buildTemplateKey, deleteFolderFromS3,
          deleteImageFromS3, extractParentPrefixFromUrl  } from "./s3";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 
+import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
+import crypto from "crypto";
+
+const INTERNAL_API_HEADER = process.env.ACADEMY_INTERNAL_API_HEADER;
+
+// Prefer SSM as source of truth; env var is fallback/bootstrapping
+const INTERNAL_KEY_PARAM_NAME = process.env.ACADEMY_API_KEY_INTERNAL_CALL_PARAM_NAME;
+let INTERNAL_KEY_CACHE: string | null;
+
+const ssm = new SSMClient({ region: process.env.ACADEMY_AWS_REGION || process.env.AWS_REGION });
+
+function timingSafeEqual(a: string, b: string) {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
+
+async function loadInternalKeyFromSsm(): Promise<string> {
+  if (!INTERNAL_KEY_PARAM_NAME) {
+    throw new Error("API_KEY_INTERNAL_CALL_PARAM_NAME is not set");
+  }
+  const out = await ssm.send(
+    new GetParameterCommand({
+      Name: INTERNAL_KEY_PARAM_NAME,
+      WithDecryption: true,
+    }),
+  );
+
+  const value = out.Parameter?.Value?.trim();
+  if (!value) throw new Error("SSM parameter returned empty value");
+  INTERNAL_KEY_CACHE = value;
+  console.log(" ::: debug ::: loading INTERNAL_KEY_PARAM_NAME:  ", INTERNAL_KEY_PARAM_NAME );
+  console.log(" ::: debug ::: loading INTERNAL_KEY_PARAM_VALUE:  ", value )
+  return value;
+}
+
+// Middleware: validate internal header
+function requireInternalApiKey(req: any, res: any, next: any) {
+  console.log(" ::: debug :: expected header: INTERNAL_API_HEADER: ", INTERNAL_API_HEADER);
+  const provided = String(req.header(INTERNAL_API_HEADER) ?? "").trim();
+  const expected = (INTERNAL_KEY_CACHE ?? "").trim();
+  console.log(" ::: debug ::: provided: ", provided);
+  console.log(" ::: debug ::: expected: ", expected);
+
+  if (!expected) {
+    // Safer to fail closed; you can also attempt lazy-load here
+    return res.status(503).json({ message: "Internal key not initialized" });
+  }
+
+  if (!provided || !timingSafeEqual(provided, expected)) {
+    return res.status(401).json({ message: "Unauthorized-Internal" });
+  }
+
+  return next();
+}
+
+
 
 // Configure multer for CSV file uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Best-effort: refresh internal key from SSM on boot
+console.log(" :: debug :: is going to load the following SSM: (INTERNAL_KEY_PARAM_NAME): ", INTERNAL_KEY_PARAM_NAME)
+if (INTERNAL_KEY_PARAM_NAME) {
+  loadInternalKeyFromSsm().catch((e) =>
+    console.error("Failed to load internal API key from SSM:", e),
+  );
+}
+
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // ___________________________________________________________________________________
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // -----------------------------------------------------------------------------------
+  // ======= Internal Routes =======
+
+  app.get("/internal/signatures", requireInternalApiKey, async (req, res) => {
+    try {
+      const signatures = await storage.getSignatures();
+      return res.json({ signatures });
+    } catch (e) {
+      console.error("Error fetching internal signatures:", e);
+      return res.status(500).json({ message: "Failed to fetch signatures" });
+    }   
+  });
+
+  app.get("/internal/templates/active", requireInternalApiKey, async (req, res) => {
+    try {
+      const template = await storage.getActiveTemplate(); // implement this
+      if (!template) return res.status(404).json({ message: "No active template found" });
+      return res.json({ template });
+    } catch (e) {
+      console.error("Error fetching active template:", e);
+      return res.status(500).json({ message: "Failed to fetch active template" });
+    }
+  });
+  
+  app.patch("/internal/diploma-batches/:id", requireInternalApiKey, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid id" });
+  
+      // Allow-list only fields that Lambda should be able to update
+      const allowed: any = {};
+      const body = req.body ?? {};
+  
+      if (typeof body.status === "string") allowed.status = body.status; // validate against enum if possible
+      if (typeof body.zipUrl === "string" || body.zipUrl === null) allowed.zipUrl = body.zipUrl;
+      if (typeof body.csvUrl === "string" || body.csvUrl === null) allowed.csvUrl = body.csvUrl;
+      if (typeof body.fileName === "string") allowed.fileName = body.fileName;
+      if (typeof body.totalRecords === "number") allowed.totalRecords = body.totalRecords;
+  
+      // Always update timestamp server-side
+      allowed.updatedAt = new Date();
+  
+      if (Object.keys(allowed).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+  
+      const updated = await storage.updateDiplomaBatch(id, allowed);
+      if (!updated) return res.status(404).json({ message: "Batch not found" });
+  
+      return res.json(updated);
+    } catch (e) {
+      console.error("Error updating diploma batch (internal):", e);
+      return res.status(500).json({ message: "Failed to update diploma batch" });
+    }
+  });
+  
+  app.post("/internal/reload-api-key", requireInternalApiKey, async (req, res) => {
+    try {
+      console.log(" :: debug :: trying to refresh Api-Key req:", req)
+      const newKey = await loadInternalKeyFromSsm();
+      return res.json({ success: true, loaded: Boolean(newKey) });
+    } catch (e) {
+      console.error("Failed to reload internal key from SSM:", e);
+      return res.status(500).json({ message: "Failed to reload internal key" });
+    }
+  });
+  
+
+
+
+
+  
   // ___________________________________________________________________________________
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   // -----------------------------------------------------------------------------------

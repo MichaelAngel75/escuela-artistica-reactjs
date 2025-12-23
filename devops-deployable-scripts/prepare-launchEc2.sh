@@ -1,11 +1,4 @@
 # -----------------------------------------------
-#  ---- only for the bastion (DB)  ----
-# my-vpc-bastion
-# lt-098dec2e7b5d14016
-# tag Name:My-VPC-Bastion
-# obtain public IP and Public DNS
-
-# -----------------------------------------------
 #!/bin/bash
 set -euo pipefail
 
@@ -17,7 +10,7 @@ set -euo pipefail
 : "${AWS_NAME_TAG_VALUE:?Must set AWS_NAME_TAG_VALUE}"
 : "${ECR_POHUALIZCALLI_NAME:?Must set ECR_POHUALIZCALLI_NAME}"
 
-LAUNCH_TEMPLATE_VERSION="${LAUNCH_TEMPLATE_VERSION:-13}"
+LAUNCH_TEMPLATE_VERSION="${LAUNCH_TEMPLATE_VERSION:-14}"
 
 echo "DEBUG: Launch Template Version -> '${LAUNCH_TEMPLATE_VERSION}'"
 echo "=== 1) Launching EC2 instance from launch template ==="
@@ -87,4 +80,5 @@ echo
 echo "==================== RESULT ===================="
 echo "EC2 Public IP            : ${PUBLIC_IP}"
 echo "Latest ECR Docker image  : ${LATEST_IMAGE_TAG}"
+echo "LAUNCH_TEMPLATE_VERSION  : ${LAUNCH_TEMPLATE_VERSION}" 
 echo "================================================"

@@ -114,6 +114,16 @@ data "aws_ssm_parameter" "google_callback_url" {
   with_decryption = true
 }
 
+data "aws_ssm_parameter" "academy_internal_api_header" {
+  name           = "/pohualizcalli/ssm/academy_internal_api_header"
+  with_decryption = true
+}
+
+data "aws_ssm_parameter" "academy_internal_api_key_param_name" {
+  name           = "/pohualizcalli/ssm/academy_internal_key_param_name"
+  with_decryption = true
+}
+
 # ----------------------------------------------------
 # Route53 record for subdomain -> ALB
 # (ALB created later; we use depends_on)

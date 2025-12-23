@@ -10,12 +10,28 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase import pdfmetrics
 from reportlab.lib.utils import ImageReader
-
 from PIL import Image
+
+
+# -----------------------------------------------------------------------------------------------------
+# ---- Examples to call api internal endpoints:
+# curl -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' http://localhost:5000/internal/signatures
+# curl -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' http://localhost:5000/internal/templates/active
+
+# curl -X POST 'http://localhost:5000/internal/reload-api-key' \
+#   -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@'
+
+# curl -X PATCH 'http://localhost:5000/internal/diploma-batches/1' \
+#   -H 'Content-Type: application/json' \
+#   -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' \
+#   -d '{
+#     "status": "completado",
+#     "totalRecords": 0
+#   }'
+# -----------------------------------------------------------------------------------------------------
 
 # Get the total width of the page
 page_width = letter[0]
-
 
 # ------------------------------
 # JSON layout helpers
@@ -25,7 +41,6 @@ def load_layout(path: str) -> dict:
         layout = json.load(f)
     validate_layout(layout)
     return layout
-
 
 def validate_layout(layout: dict) -> None:
     # Minimal validation to ensure colors are hex when present
