@@ -8,8 +8,8 @@
 // -------------------------------------------------------------------------------------------------
 // # curl -X POST 'http://localhost:5000/internal/reload-api-key' \
 // #   -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@'
-// curl -X POST 'https://admin.pohualizcalli.link/internal/reload-api-key' \
-//   -H 'api-key-pohualizcalli: adios-mUNDO-COMO-3mejor-esto!@'
+//  curl -X POST 'https://admin.pohualizcalli.link/internal/reload-api-key' \
+//    -H 'api-key-pohualizcalli: adios-mUNDO-COMO-3mejor-esto!@'
 // -------------------------------------------------------------------------------------------------
 //  curl -X PATCH 'http://localhost:5000/internal/diploma-batches/1' \
 //    -H 'Content-Type: application/json' \

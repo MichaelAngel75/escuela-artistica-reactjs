@@ -128,6 +128,7 @@ resource "aws_security_group" "ecs_tasks_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
+    # security_groups = ["sg-08859530fb3d9ed77", "sg-02254bef174c4f39e"] // adding vpc-secrets-manager-access, vpc-cloudwatch-logs
   }
 }
 
