@@ -253,35 +253,31 @@ ALTER TABLE schema_pohualizcalli.templates ADD CONSTRAINT templates_created_by_u
 
 
 -------------------------------------------------------------------------------------------------------------------
-
-export ACADEMY_DATABASE_URL=<< this is not required is done by secret manager>
-export ACADEMY_DB_SECRET_MANAGER=
-export ACADEMY_INTERNAL_APP_DOMAIN=admin.pohualizcalli.link
-export ACADEMY_DEV_DOMAIN=localhost:5000
------ for logging into production  console.log 
-export ACADEMY_NODE_ENV=production
 -----------------  S3 templates:
 ---- arn:aws:s3:::my-bucket
 ---  /<my-bucket-name>/generacion-diplomas/empty-templates/<4-digit-year>
 ---  /<my-bucket-name>//generacion-diplomas/signatures/<4-digit-year>/
 ---  /<my-bucket-name>//generacion-diplomas/generated-diplomas/<id-generation-db>
-export ACADEMY_PUBLIC_OBJECT_SEARCH_PATHS=
-export ACADEMY_PRIVATE_OBJECT_DIR=
-export ACADEMY_ISSUER_URL=
-export ACADEMY_SESSION_SECRET=any-word-for-generatin-sessionbrowser
 
----- replitAuth.ts ---
-ACADEMY_GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
-ACADEMY_GOOGLE_CLIENT_SECRET=xxxx
-ACADEMY_GOOGLE_CALLBACK_URL=http://localhost:5000/api/callback
+
+ACADEMY_INTERNAL_APP_DOMAIN   ???
+ACADEMY_DEV_DOMAIN            ???
+ACADEMY_PUBLIC_OBJECT_SEARCH_PATHS=/pohualizcalli-several-files/no-exist-this-folder     =====>  no needed 
+
+
+------ ###################################################################################
+/pohualizcalli/ssm/
+
+ACADEMY_NODE_ENV=
 ACADEMY_DB_SECRET_MANAGER=
-
-# Allow only Gmail:
-ACADEMY_ALLOWED_DOMAINS=gmail.com
-
-# Or allow Gmail + school domain:
-# ACADEMY_ALLOWED_DOMAINS=gmail.com,pohualizcalli.edu
-
-
--- export ACADEMY_REPL_ID=
-
+ACADEMY_DB_SCHEMA=
+ACADEMY_SESSION_SECRET=
+ACADEMY_GOOGLE_CLIENT_ID=
+ACADEMY_GOOGLE_CLIENT_SECRET=
+ACADEMY_GOOGLE_CALLBACK_URL=
+ACADEMY_PORT=
+ACADEMY_PRIVATE_OBJECT_DIR=
+ACADEMY_SQS_DIPLOMA_GENERATION=
+ACADEMY_AWS_REGION=
+ACADEMY_S3_BUCKET=
+ACADEMY_RESOURCES_DOMAIN=

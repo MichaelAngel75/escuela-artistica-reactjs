@@ -3,7 +3,7 @@
 # ----------------------------------------------------
 
 resource "aws_ecs_cluster" "this" {
-  name = "mabelsrescue-ecs-cluster"
+  name = "pohualizcalli-ecs-cluster"
 
   setting {
     name  = "containerInsights"
@@ -26,18 +26,18 @@ resource "aws_ecs_cluster" "this" {
 
 #       AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 #       AWS_REGION=${var.aws_region}
-#       REPO_URL=${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_ssm_parameter.aws_region_param.value}.amazonaws.com/mabels-admin:${local.ecr_image_tag}
+#       REPO_URL=${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_ssm_parameter.aws_region_param.value}.amazonaws.com/pohualizcalli-admin:${local.ecr_image_tag}
 
 #       echo "Logging in to ECR..."
 #       aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REPO_URL
 
 #       echo "Building Docker image..."
-#       docker build -t mabelsrescue-app:${local.ecr_image_tag} ${var.docker_build_context}
-#       echo # NOT DOING THIS docker build -t mabelsrescue-app:${local.ecr_image_tag} ${var.docker_build_context}
+#       docker build -t pohualizcalli-app:${local.ecr_image_tag} ${var.docker_build_context}
+#       echo # NOT DOING THIS docker build -t pohualizcalli-app:${local.ecr_image_tag} ${var.docker_build_context}
 
 #       echo "Tagging image..."
-#       docker tag mabelsrescue-app:${local.ecr_image_tag} $REPO_URL
-#       echo # NOT DOING THIS docker tag mabelsrescue-app:${local.ecr_image_tag} $REPO_URL:${local.ecr_image_tag}
+#       docker tag pohualizcalli-app:${local.ecr_image_tag} $REPO_URL
+#       echo # NOT DOING THIS docker tag pohualizcalli-app:${local.ecr_image_tag} $REPO_URL:${local.ecr_image_tag}
 
 #       echo "Pushing image..."
 #       docker push $REPO_URL
@@ -51,7 +51,7 @@ resource "aws_ecs_cluster" "this" {
 # ----------------------------------------------------
 
 resource "aws_iam_role" "ecs_task_execution" {
-  name = "mabelsrescue-ecs-task-execution-role"
+  name = "pohualizcalli-ecs-task-execution-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -77,7 +77,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
 # ----------------------------------------------------
 
 resource "aws_security_group" "alb_sg" {
-  name        = "mabelsrescue-alb-sg"
+  name        = "pohualizcalli-alb-sg"
   description = "ALB security group"
   vpc_id      = local.vpc_id
 
@@ -110,7 +110,7 @@ resource "aws_security_group" "alb_sg" {
 }
 
 resource "aws_security_group" "ecs_tasks_sg" {
-  name        = "mabelsrescue-ecs-tasks-sg"
+  name        = "pohualizcalli-ecs-tasks-sg"
   description = "Allow traffic from ALB to ECS tasks"
   vpc_id      = local.vpc_id
 
@@ -136,7 +136,7 @@ resource "aws_security_group" "ecs_tasks_sg" {
 # ----------------------------------------------------
 
 resource "aws_lb" "this" {
-  name               = "mabelsrescue-alb"
+  name               = "pohualizcalli-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
@@ -144,7 +144,7 @@ resource "aws_lb" "this" {
 }
 
 resource "aws_lb_target_group" "this" {
-  name     = "mabelsrescue-tg"
+  name     = "pohualizcalli-tg"
   port     = var.container_port
   protocol = "HTTP"
   vpc_id   = local.vpc_id
@@ -187,8 +187,8 @@ data "aws_iam_role" "app_task_role" {
   name = "mabels-rescue-role"
 }
 
-resource "aws_ecs_task_definition" "mabelsrescue_task" {
-  family                   = "mabelsrescue-task"
+resource "aws_ecs_task_definition" "pohualizcalli_task" {
+  family                   = "pohualizcalli-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["EC2"]
   cpu                      = var.ecs_task_cpu
@@ -198,8 +198,8 @@ resource "aws_ecs_task_definition" "mabelsrescue_task" {
 
   container_definitions = jsonencode([
     {
-      name      = "mabelsrescue-app"
-      image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_ssm_parameter.aws_region_param.value}.amazonaws.com/mabels-admin:${var.ecr_remote_tag}"
+      name      = "pohualizcalli-app"
+      image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_ssm_parameter.aws_region_param.value}.amazonaws.com/pohualizcalli-admin:${var.ecr_remote_tag}"
       essential = true
       portMappings = [
         {
@@ -220,86 +220,86 @@ resource "aws_ecs_task_definition" "mabelsrescue_task" {
         #   value = data.aws_ssm_parameter.aws_secret_key.value
         # }, 
         {
-          name      = "GOOGLE_CLIENT_ID"
-          value = data.aws_ssm_parameter.google_client_id.value
+          name     = "ACADEMY_NODE_ENV",
+          value    = "production"
         },
         {
-          name      = "GOOGLE_CLIENT_SECRET"
-          value = data.aws_ssm_parameter.google_client_secret.value
-        },  
-        {
-          name      = "GOOGLE_SHEET_SERVICE_EMAIL"
-          value = data.aws_ssm_parameter.google_sheet_service_email.value
-        },
-        {
-          name      = "GOOGLE_SHEET_PRIVATE_KEY"
-          value = data.aws_ssm_parameter.google_sheet_private_key.value
-        },
-        {
-          name  = "ADOPTION_SHEET_ID"
-          value = data.aws_ssm_parameter.adoption_sheet_id.value
-        },
-        {
-          name  = "FOSTER_SHEET_ID"
-          value = data.aws_ssm_parameter.foster_sheet_id.value
-        },
-        {
-          name  = "PORT"
-          value = data.aws_ssm_parameter.port.value
-        },
-        {
-          name      = "SESSION_SECRET"
-          value = data.aws_ssm_parameter.session_secret.value
-        },
-        {
-          name  = "AWS_BUCKET_NAME"
-          value = data.aws_ssm_parameter.aws_bucket_name.value
-        },
-        {
-          name  = "AWS_BUCKET_NAME_WWW"
-          value = data.aws_ssm_parameter.aws_www_bucket_name.value
-        },
-        {
-          name  = "AWS_REGION"
-          value = data.aws_ssm_parameter.aws_region_param.value
-        },
-        {
-          name     = "DB_SECRET_MANAGER",
+          name     = "ACADEMY_DB_SECRET_MANAGER"
           value    = data.aws_ssm_parameter.aws_db_secret_manager.value
         },
         {
-          name     = "GOOGLE_SHEETS_SECRET_MANAGER",
-          value    = data.aws_ssm_parameter.google_sheets_secret_manager.value
+          name     = "ACADEMY_DB_SCHEMA",
+          value    = data.aws_ssm_parameter.aws_db_schema.value
         },
         {
-          name     = "DB_USER_NAME",
-          value    = jsondecode(data.aws_secretsmanager_secret_version.db.secret_string)["db_user"]
+          name      = "ACADEMY_SESSION_SECRET"
+          value = data.aws_ssm_parameter.session_secret.value
         },
         {
-          name     = "DB_PASSWORD",
-          value    = jsondecode(data.aws_secretsmanager_secret_version.db.secret_string)["db_password"]
+          name      = "ACADEMY_GOOGLE_CLIENT_ID"
+          value = data.aws_ssm_parameter.google_client_id.value
         },
         {
-          name     = "DB_URL_1",
-          value    = jsondecode(data.aws_secretsmanager_secret_version.db.secret_string)["db_to_concatenate_1"]
-        },
-        {
-          name     = "DB_URL_2",
-          value    = jsondecode(data.aws_secretsmanager_secret_version.db.secret_string)["db_to_concatenate_2"]
+          name      = "ACADEMY_GOOGLE_CLIENT_SECRET"
+          value = data.aws_ssm_parameter.google_client_secret.value
         }, 
         {
-          name     = "GOOGLE_CALLBACK_URL",
+          name     = "ACADEMY_GOOGLE_CALLBACK_URL",
           value    = data.aws_ssm_parameter.google_callback_url.value
         },
         {
-          name     = "IMAGES_DOMAIN",
-          value    = data.aws_ssm_parameter.aws_image_domain.value
-        }      
+          name  = "ACADEMY_PORT"
+          value = data.aws_ssm_parameter.port.value
+        },
+        {
+          name  = "ACADEMY_PRIVATE_OBJECT_DIR"
+          value = data.aws_ssm_parameter.academy_private_object_dir.value
+        },
+                {
+          name  = "ACADEMY_SQS_DIPLOMA_GENERATION"
+          value = data.aws_ssm_parameter.academy_sqs_diploma_generation.value
+        },
+        {
+          name  = "ACADEMY_AWS_REGION"
+          value = data.aws_ssm_parameter.aws_region_param.value
+        },
+        {
+          name  = "ACADEMY_S3_BUCKET"
+          value = data.aws_ssm_parameter.aws_bucket_name.value
+        },
+        {
+          name  = "ACADEMY_RESOURCES_DOMAIN"
+          value = data.aws_ssm_parameter.academy_resources_domain.value
+        },
+        # {
+        #   name     = "DB_SECRET_MANAGER",
+        #   value    = data.aws_ssm_parameter.aws_db_secret_manager.value
+        # },
+        # {
+        #   name     = "GOOGLE_SHEETS_SECRET_MANAGER",
+        #   value    = data.aws_ssm_parameter.google_sheets_secret_manager.value
+        # },
+        # {
+        #   name     = "DB_USER_NAME",
+        #   value    = jsondecode(data.aws_secretsmanager_secret_version.db.secret_string)["db_user"]
+        # },
+        # {
+        #   name     = "DB_PASSWORD",
+        #   value    = jsondecode(data.aws_secretsmanager_secret_version.db.secret_string)["db_password"]
+        # },
+        # {
+        #   name     = "DB_URL_1",
+        #   value    = jsondecode(data.aws_secretsmanager_secret_version.db.secret_string)["db_to_concatenate_1"]
+        # },
+        # {
+        #   name     = "DB_URL_2",
+        #   value    = jsondecode(data.aws_secretsmanager_secret_version.db.secret_string)["db_to_concatenate_2"]
+        # }   
       ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = "/ecs/mabelsrescue"
+          awslogs-group         = "/ecs/pohualizcalli"
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "ecs"
         }
@@ -314,7 +314,7 @@ resource "aws_ecs_task_definition" "mabelsrescue_task" {
 
 # CloudWatch Log Group (for ecs logs)
 resource "aws_cloudwatch_log_group" "ecs" {
-  name              = "/ecs/mabelsrescue"
+  name              = "/ecs/pohualizcalli"
   retention_in_days = 30
 }
 
@@ -324,10 +324,10 @@ resource "aws_cloudwatch_log_group" "ecs" {
 # to this cluster (ECS agent configured).
 # ----------------------------------------------------
 
-resource "aws_ecs_service" "mabelsrescue_service" {
-  name            = "mabelsrescue-service"
+resource "aws_ecs_service" "pohualizcalli_service" {
+  name            = "pohualizcalli-service"
   cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.mabelsrescue_task.arn
+  task_definition = aws_ecs_task_definition.pohualizcalli_task.arn
   desired_count   = 1
   launch_type     = "EC2"
 
@@ -342,7 +342,7 @@ resource "aws_ecs_service" "mabelsrescue_service" {
 
   load_balancer {
     target_group_arn = aws_lb_target_group.this.arn
-    container_name   = "mabelsrescue-app"
+    container_name   = "pohualizcalli-app"
     container_port   = var.container_port
   }
 
@@ -362,7 +362,7 @@ resource "aws_ecs_service" "mabelsrescue_service" {
 # IAM role & instance profile for ECS container instances
 # ----------------------------------------------------
 resource "aws_iam_role" "ecs_instance_role" {
-  name = "mabelsrescue-ecs-instance-role"
+  name = "pohualizcalli-ecs-instance-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -378,23 +378,23 @@ resource "aws_iam_role" "ecs_instance_role" {
 
 
 # ------- added probably not requried -----
-data "aws_iam_policy" "mabels_terraform_policy_01" {
+data "aws_iam_policy" "pohualizcalli_terraform_policy_01" {
   name = "mabels-terraform-policy"
 }
 
 # ✅ Attach the SAME policy to the ECS instance role
 resource "aws_iam_role_policy_attachment" "ecs_instance_extra_policy_01" {
   role       = aws_iam_role.ecs_instance_role.name
-  policy_arn = data.aws_iam_policy.mabels_terraform_policy_01.arn
+  policy_arn = data.aws_iam_policy.pohualizcalli_terraform_policy_01.arn
 }
 
-data "aws_iam_policy" "mabels_terraform_policy_02" {
+data "aws_iam_policy" "pohualizcalli_terraform_policy_02" {
   name = "mabels-terraform-policy-more-01"
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_instance_extra_policy_02" {
   role       = aws_iam_role.ecs_instance_role.name
-  policy_arn = data.aws_iam_policy.mabels_terraform_policy_02.arn
+  policy_arn = data.aws_iam_policy.pohualizcalli_terraform_policy_02.arn
 }
 
 
@@ -406,7 +406,7 @@ resource "aws_iam_role_policy_attachment" "ecs_instance_role_attach" {
 }
 
 resource "aws_iam_instance_profile" "ecs_instance_profile" {
-  name = "mabelsrescue-ecs-instance-profile-v5"
+  name = "pohualizcalli-ecs-instance-profile-v5"
   role = aws_iam_role.ecs_instance_role.name
 }
 
@@ -421,7 +421,7 @@ data "aws_ssm_parameter" "ecs_optimized_ami" {
 }
 
 resource "aws_launch_template" "ecs" {
-  name_prefix   = "mabelsrescue-ecs-"
+  name_prefix   = "pohualizcalli-ecs-"
   image_id      = data.aws_ssm_parameter.ecs_optimized_ami.value
   instance_type = "t3.small"
 
@@ -439,7 +439,7 @@ resource "aws_launch_template" "ecs" {
 
   user_data = base64encode(<<EOF
 #!/usr/bin/env bash
-echo "ECS_CLUSTER=mabelsrescue-ecs-cluster" >> /etc/ecs/ecs.config
+echo "ECS_CLUSTER=pohualizcalli-ecs-cluster" >> /etc/ecs/ecs.config
 sudo yum update -y ecs-init
 #this will update ECS agent, better when using custom AMI
 /usr/bin/docker pull amazon/amazon-ecs-agent:latest
@@ -454,7 +454,7 @@ EOF
 # Auto Scaling Group for ECS cluster capacity
 # ----------------------------------------------------
 resource "aws_autoscaling_group" "ecs" {
-  name                      = "mabelsrescue-ecs-asg"
+  name                      = "pohualizcalli-ecs-asg"
   max_size                  = 1
   min_size                  = 1
   desired_capacity          = 1
@@ -475,13 +475,13 @@ resource "aws_autoscaling_group" "ecs" {
   # 👇 THIS is what sets the Name in the EC2 console
   tag {
     key                 = "Name"
-    value               = "Mabels-Admin-App"
+    value               = "Pohualizcalli-Admin-App"
     propagate_at_launch = true
   }
 
   tag {
     key                 = "Project"
-    value               = "MabelsRescue"
+    value               = "Pohualizcalli"
     propagate_at_launch = true
   }
 }

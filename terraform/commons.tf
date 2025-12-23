@@ -9,14 +9,10 @@ locals {
   fqdn                       = local.root_domain
   account_id                 = data.aws_caller_identity.current.account_id
 
-  aws_access_key             = data.aws_ssm_parameter.aws_access_key.value
-  aws_secret_key             = data.aws_ssm_parameter.aws_secret_key.value
+
+  ##### --------------------------------
   google_client_id           = data.aws_ssm_parameter.google_client_id.value
   google_client_secret       = data.aws_ssm_parameter.google_client_secret.value
-  google_sheet_service_email = data.aws_ssm_parameter.google_sheet_service_email.value
-  google_sheet_private_key   = data.aws_ssm_parameter.google_sheet_private_key.value
-  adoption_sheet_id          = data.aws_ssm_parameter.adoption_sheet_id.value
-  foster_sheet_id            = data.aws_ssm_parameter.foster_sheet_id.value
   port                       = data.aws_ssm_parameter.port.value
   session_secret             = data.aws_ssm_parameter.session_secret.value
   aws_bucket_name            = data.aws_ssm_parameter.aws_bucket_name.value
@@ -24,9 +20,10 @@ locals {
   aws_db_secret_manager      = data.aws_ssm_parameter.aws_db_secret_manager.value
   google_callback_url        = data.aws_ssm_parameter.google_callback_url.value
 
+  # aws_access_key             = data.aws_ssm_parameter.aws_access_key.value
+  # aws_secret_key             = data.aws_ssm_parameter.aws_secret_key.value
 
-  
-
+ 
 }
 
 
@@ -36,101 +33,84 @@ locals {
 # ----------------------------------------------------
 
 data "aws_ssm_parameter" "route53_zone_id" {
-  name = "/mabelsrescue/ssm/aws_route53_id"
+  name = "/pohualizcalli/ssm/aws_route53_id"
 }
 
 data "aws_ssm_parameter" "route53_domain" {
-  name = "/mabelsrescue/ssm/aws_route53_domain"
+  name = "/pohualizcalli/ssm/aws_route53_domain"
 }
 
 #########################################
 # SSM parameters for app configuration
-#########################################
+#########################################google_client_id
 
-data "aws_ssm_parameter" "aws_access_key" {
-  name           = "/mabelsrescue/ssm/aws_access_key"
-  with_decryption = true
-}
+# data "aws_ssm_parameter" "aws_access_key" {
+#   name           = "/pohualizcalli/ssm/aws_access_key"
+#   with_decryption = true
+# }
 
-data "aws_ssm_parameter" "aws_secret_key" {
-  name           = "/mabelsrescue/ssm/aws_secret_key"
-  with_decryption = true
-}
+# data "aws_ssm_parameter" "aws_secret_key" {
+#   name           = "/pohualizcalli/ssm/aws_secret_key"
+#   with_decryption = true
+# }
 
 data "aws_ssm_parameter" "google_client_id" {
-  name           = "/mabelsrescue/ssm/google_client_id"
+  name           = "/pohualizcalli/ssm/academy_google_client_id"
   with_decryption = true
 }
 
 data "aws_ssm_parameter" "google_client_secret" {
-  name           = "/mabelsrescue/ssm/google_client_secret"
-  with_decryption = true
-}
-
-data "aws_ssm_parameter" "google_sheet_service_email" {
-  name           = "/mabelsrescue/ssm/google_sheet_service_email"
-  with_decryption = true
-}
-
-data "aws_ssm_parameter" "google_sheet_private_key" {
-  name           = "/mabelsrescue/ssm/google_sheet_private_key"
-  with_decryption = true
-}
-
-data "aws_ssm_parameter" "adoption_sheet_id" {
-  name           = "/mabelsrescue/ssm/adoption_sheet_id"
-  with_decryption = true
-}
-
-data "aws_ssm_parameter" "foster_sheet_id" {
-  name           = "/mabelsrescue/ssm/foster_sheet_id"
+  name           = "/pohualizcalli/ssm/academy_google_client_secret"
   with_decryption = true
 }
 
 data "aws_ssm_parameter" "port" {
-  name           = "/mabelsrescue/ssm/port"
+  name           = "/pohualizcalli/ssm/academy_port"
   with_decryption = true
 }
 
 data "aws_ssm_parameter" "session_secret" {
-  name           = "/mabelsrescue/ssm/session_secret"
+  name           = "/pohualizcalli/ssm/academy_session_secret"
   with_decryption = true
 }
 
 data "aws_ssm_parameter" "aws_bucket_name" {
-  name           = "/mabelsrescue/ssm/aws_bucket_name"
+  name           = "/pohualizcalli/ssm/academy_s3_bucket"
   with_decryption = true
 }
 
-data "aws_ssm_parameter" "aws_www_bucket_name" {
-  name           = "/mabelsrescue/ssm/aws_www_bucket_name"
+data "aws_ssm_parameter" "academy_resources_domain" {
+  name           = "/pohualizcalli/ssm/academy_resources_domain"
   with_decryption = true
 }
 
+data "aws_ssm_parameter" "academy_private_object_dir" {
+  name           = "/pohualizcalli/ssm/academy_private_object_dir"
+  with_decryption = true
+}
 
+data "aws_ssm_parameter" "academy_sqs_diploma_generation" {
+  name           = "/pohualizcalli/ssm/academy_sqs_diploma_generation"
+  with_decryption = true
+}
 
 data "aws_ssm_parameter" "aws_region_param" {
-  name           = "/mabelsrescue/ssm/aws_region"
+  name           = "/pohualizcalli/ssm/academy_aws_region"
   with_decryption = true
 }
 
 data "aws_ssm_parameter" "aws_db_secret_manager" {
-  name           = "/mabelsrescue/ssm/db_secret_manager"
+  name           = "/pohualizcalli/ssm/db_secret_manager"
   with_decryption = true
 }
 
-data "aws_ssm_parameter" "google_sheets_secret_manager" {
-  name           = "/mabelsrescue/ssm/google_sheets_secret_manager"
+data "aws_ssm_parameter" "aws_db_schema" {
+  name           = "/pohualizcalli/ssm/academy_db_schema"
   with_decryption = true
 }
 
 data "aws_ssm_parameter" "google_callback_url" {
-  name           = "/mabelsrescue/ssm/google_callback_url"
-  with_decryption = true
-}
-
-data "aws_ssm_parameter" "aws_image_domain" {
-  name           = "/mabelsrescue/ssm/image_domain"
+  name           = "/pohualizcalli/ssm/academy_google_callback_url"
   with_decryption = true
 }
 

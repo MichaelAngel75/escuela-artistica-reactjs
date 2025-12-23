@@ -10,7 +10,7 @@ import {
 import "dotenv/config";
 
 const secretName = process.env.ACADEMY_DB_SECRET_MANAGER;
-const region = process.env.AWS_REGION;
+const region = process.env.ACADEMY_AWS_REGION;
 
 // Basic sanity checks (no await here, so it's fine)
 if (!secretName) {
@@ -26,7 +26,6 @@ let pool: Pool | null = null;
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 async function ensureConnectionString(): Promise<string> {
-  console.log("::: debug ::: process.env.ACADEMY_DATABASE_URL: ", process.env.ACADEMY_DATABASE_URL);
   if (process.env.ACADEMY_DATABASE_URL) {
     return process.env.ACADEMY_DATABASE_URL;
   }

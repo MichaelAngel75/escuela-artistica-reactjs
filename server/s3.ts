@@ -11,7 +11,6 @@ import {
 import { randomUUID } from "crypto";
 
 const BUCKET_NAME = process.env.ACADEMY_S3_BUCKET || null;
-// const BUCKET_NAME_WWW = process.env.ACADEMY_AWS_BUCKET_NAME_WWW || null;
 const REGION = process.env.ACADEMY_AWS_REGION || null;
 const HTTPS_RESOURCES_DOMAIN = process.env.ACADEMY_RESOURCES_DOMAIN || null;
 const root_path = 'generacion-diplomas';

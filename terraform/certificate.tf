@@ -14,7 +14,7 @@ resource "aws_acm_certificate" "alb_cert" {
   }
 
   tags = {
-    Name        = "mabelsrescue-alb-cert"
+    Name        = "pohualizcalli-alb-cert"
     Environment = "prod"
   }
 }

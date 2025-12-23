@@ -26,11 +26,11 @@ terraform {
   }
 
   backend "s3" {
-    bucket    =  "pohualizcalli-terraform"  # "@bucketName-env@"
+    bucket    =  "mabelsrescue-terraform"  # "@bucketName-env@" ==> DONT CHANGE THIS VALUE !!!
     key       =  "pohualizcalli/terraform.tfstate" # @projectKey@/@UCD_ENV@/tf-base-infrastructure.tfstate
     region    =  "us-east-1" 
     profile   =  "pohualizcalliTerraform"  # @projectKey@-env
     encrypt   = true
-    dynamodb_table = "terraform-lock"
+    dynamodb_table = "terraform-lock"  #  ==> DONT CHANGE THIS VALUE !!!
   }
 }

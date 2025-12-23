@@ -15,7 +15,7 @@ set -euo pipefail
 : "${AWS_LAUNCH_TEMPLATE_KUBERNETES:?Must set AWS_LAUNCH_TEMPLATE_KUBERNETES}"
 : "${AWS_PROFILE_MICHAEL:?Must set AWS_PROFILE_MICHAEL}"
 : "${AWS_NAME_TAG_VALUE:?Must set AWS_NAME_TAG_VALUE}"
-: "${ECR_MABEL_NAME:?Must set ECR_MABEL_NAME}"
+: "${ECR_POHUALIZCALLI_NAME:?Must set ECR_POHUALIZCALLI_NAME}"
 
 LAUNCH_TEMPLATE_VERSION="${LAUNCH_TEMPLATE_VERSION:-13}"
 
@@ -69,15 +69,15 @@ fi
 
 echo "Public IP obtained: ${PUBLIC_IP}"
 
-echo "=== 3) Getting latest Docker image tag from ECR (${ECR_MABEL_NAME}) ==="
+echo "=== 3) Getting latest Docker image tag from ECR (${ECR_POHUALIZCALLI_NAME}) ==="
 LATEST_IMAGE_TAG=$(aws ecr describe-images \
-  --repository-name "${ECR_MABEL_NAME}" \
+  --repository-name "${ECR_POHUALIZCALLI_NAME}" \
   --query 'sort_by(imageDetails[?imageTags!=null], &imagePushedAt)[-1].imageTags[0]' \
   --output text \
   --profile "${AWS_PROFILE_MICHAEL}")
 
 if [[ -z "${LATEST_IMAGE_TAG}" || "${LATEST_IMAGE_TAG}" == "None" ]]; then
-  echo "ERROR: Could not obtain latest image tag from ECR repository ${ECR_MABEL_NAME}"
+  echo "ERROR: Could not obtain latest image tag from ECR repository ${ECR_POHUALIZCALLI_NAME}"
   exit 1
 fi
 
