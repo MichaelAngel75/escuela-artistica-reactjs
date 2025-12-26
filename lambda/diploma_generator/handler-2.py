@@ -1,3 +1,64 @@
+# =============================================================================================================
+
+# Perfect, this is very clear. Let’s turn your working local script into an AWS Lambda that:
+
+#     Runs in a VPC private subnet
+#     Is triggered by SQS
+#     Fetches configuration (API key, signatures, template, positions) once and reuses it
+#     Reads the CSV from the URL, generates all PDFs + result CSV into /tmp/<proceso-X>
+#     Zips everything, uploads to S3, and updates the diploma batch via your internal API.
+
+# Below is a single lambda_function.py that does all of that, reusing your PDF-generation logic as 
+#      much as possible.
+
+# You will only need to adjust the environment variables and deploy with the required 
+#     libraries (PyPDF2, reportlab, Pillow, requests, boto3 is already in Lambda).
+
+
+# Assumptions / Environment variables
+#     Set these in the Lambda configuration:
+
+#     POHUALIZCALLI_SSM_PARAM_NAME = POHUALIZCALLI_SSM_ENV_VARIABLE_NAME   # SSM name holding API key
+#     ADMIN_API_BASE                = https://admin.my-website.com/internal
+#     RESOURCES_BASE_URL            = https://resources.my-website.com      # public URL base
+#     RESOURCES_BUCKET              = resources.my-website.com              # S3 bucket behind that URL
+
+# =============================================================================================================
+
+# Notes and things to verify
+
+# Networking (very important)
+#     Lambda in private subnet will need:
+#     VPC endpoints or NAT to reach:
+#     SSM (ssm.*)
+#     Your admin API (admin.my-website.com)
+#     Your resources domain (resources.my-website.com) if accessed via HTTPS
+#     S3 VPC endpoint to avoid NAT for S3 traffic.
+
+# Lambda size / dependencies
+#     This function requires:
+#     PyPDF2
+#     reportlab
+#     Pillow
+#     requests
+#     You will need to package these (zip or Lambda layer). boto3 is already there.
+
+# Configuration key names
+#     I mapped the layout keys from the API as:
+#     layout["estudiante"] for the student name (CSV: nombre)
+#     layout["curso"]
+#     layout["profesor-signature"]
+#     layout["profesor"]
+#     layout["fecha"]
+#     If your API still uses "nombre" instead of "estudiante", just change those keys.
+
+# CSV encoding and line breaks
+#     If your input CSV has weird line breaks in fecha (like the sample showing a line break after ,), 
+#     you may want to pre-clean the CSV file before upload, or enforce a simple format (YYYY-MM-DD) 
+#     from the admin UI.
+
+# =====================================================================================================================
+
 import json
 import os
 import re
