@@ -1,10 +1,10 @@
 // # -----------------------------------------------------------------------------------------------------
 // # ---- Examples to call api internal endpoints:
 // # curl -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' http://localhost:5000/internal/signatures
-// # curl -H 'api-key-pohualizcalli: adios-mUNDO-COMO-3mejor-esto!@' https://admin.pohualizcalli.link/internal/signatures
+// # curl -H 'api-key-pohualizcalli: algunaw=conrasenia-mejor-ymaslarGA' https://admin.pohualizcalli.link/internal/signatures
 // -------------------------------------------------------------------------------------------------
 // # curl -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@' http://localhost:5000/internal/templates/active
-// # curl -H 'api-key-pohualizcalli: adios-mUNDO-COMO-3mejor-esto!@' https://admin.pohualizcalli.link/internal/templates/active
+// # curl -H 'api-key-pohualizcalli: algunaw=conrasenia-mejor-ymaslarGA' https://admin.pohualizcalli.link/internal/templates/active
 // -------------------------------------------------------------------------------------------------
 // # curl -X POST 'http://localhost:5000/internal/reload-api-key' \
 // #   -H 'api-key-pohualizcalli: HOLA-mUNDO-COMO-3mejor-esto!@'
