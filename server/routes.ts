@@ -169,6 +169,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // -----------------------------------------------------------------------------------
   // ======= Internal Routes =======
 
+  app.get("/internal/configuration", requireInternalApiKey, async (req, res) => {
+    try {
+      const config = await storage.getConfiguration();
+      res.json(config || { fieldMappings: {} });
+    } catch (error) {
+      console.error("Error fetching configuration:", error);
+      res.status(500).json({ message: "Failed to fetch configuration" });
+    }  
+  });
+
+
   app.get("/internal/signatures", requireInternalApiKey, async (req, res) => {
     try {
       const signatures = await storage.getSignatures();
