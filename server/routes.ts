@@ -121,18 +121,13 @@ async function loadInternalKeyFromSsm(): Promise<string> {
   const value = out.Parameter?.Value?.trim();
   if (!value) throw new Error("SSM parameter returned empty value");
   INTERNAL_KEY_CACHE = value;
-  console.log(" ::: debug ::: loading INTERNAL_KEY_PARAM_NAME:  ", INTERNAL_KEY_PARAM_NAME );
-  console.log(" ::: debug ::: loading INTERNAL_KEY_PARAM_VALUE:  ", value )
   return value;
 }
 
 // Middleware: validate internal header
 function requireInternalApiKey(req: any, res: any, next: any) {
-  console.log(" ::: debug :: expected header: INTERNAL_API_HEADER: ", INTERNAL_API_HEADER);
   const provided = String(req.header(INTERNAL_API_HEADER) ?? "").trim();
   const expected = (INTERNAL_KEY_CACHE ?? "").trim();
-  console.log(" ::: debug ::: provided: ", provided);
-  console.log(" ::: debug ::: expected: ", expected);
 
   if (!expected) {
     // Safer to fail closed; you can also attempt lazy-load here
@@ -152,7 +147,6 @@ function requireInternalApiKey(req: any, res: any, next: any) {
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Best-effort: refresh internal key from SSM on boot
-console.log(" :: debug :: is going to load the following SSM: (INTERNAL_KEY_PARAM_NAME): ", INTERNAL_KEY_PARAM_NAME)
 if (INTERNAL_KEY_PARAM_NAME) {
   loadInternalKeyFromSsm().catch((e) =>
     console.error("Failed to load internal API key from SSM:", e),

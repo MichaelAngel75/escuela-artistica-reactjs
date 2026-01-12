@@ -1,0 +1,32 @@
+{
+    "nombre": {
+      "y": 300,
+      "centered": true,
+      "font": { "name": "Helvetica-Bold", "size": 24, "color": "#6D28D9" }
+    },
+    "curso": {
+      "y": 253,
+      "centered": true,
+      "font": { "name": "Helvetica-Bold", "size": 12, "color": "#374151" }
+    },
+    "profesor-signature": {
+      "x": 42,
+      "y": 188,      
+      "size": 63
+    },
+    "profesor-signature-2": {
+      "x": 328,
+      "y": 206,
+      "size": 78
+    },
+    "profesor": {
+      "x_range": [433, 573],
+      "y": 97,
+      "font": { "name": "Helvetica", "size": 12, "color": "#000000" }
+    },
+    "fecha": {
+      "x": 418,
+      "y": 25,
+      "font": { "name": "Helvetica", "size": 12, "color": "#000000" }
+    }
+}  
