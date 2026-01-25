@@ -1,11 +1,11 @@
 # ---------- BUILD STAGE ----------
-FROM node:22-alpine AS build
+FROM node:22-bookworm AS build
 
 WORKDIR /app
 
-# Copy package metadata and install deps
+# Copy package metadata and install deps  
 COPY package*.json ./
-RUN npm install
+RUN npm ci --legacy-peer-deps && npm cache clean --force
 
 # Copy the rest of the source (client, server, shared, index.html, configs, etc.)
 COPY . .
@@ -14,7 +14,7 @@ COPY . .
 RUN npm run build
 
 # ---------- RUNTIME STAGE ----------
-FROM node:22-alpine
+FROM node:22-slim
 
 WORKDIR /app
 
