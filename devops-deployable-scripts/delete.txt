@@ -1,0 +1,2 @@
+curl -I https://secretsmanager.us-east-1.amazonaws.com/
+curl -I https://logs.us-east-1.amazonaws.com/

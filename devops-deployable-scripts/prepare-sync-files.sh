@@ -168,7 +168,8 @@ TMP_FILE_LIST="$(mktemp)"
 
 # Find only files directly under LOCAL_BASE_DIR (no recursion)
 # and write their relative paths into the temp file
-find . -maxdepth 1 -type f -printf "%P\n" > "${TMP_FILE_LIST}"
+# Use sed to strip the ./ prefix for cross-platform compatibility (macOS BSD find doesn't support -printf)
+find . -maxdepth 1 -type f | sed 's|^\./||' > "${TMP_FILE_LIST}"
 
 if [ -s "${TMP_FILE_LIST}" ]; then
   rsync -avz -e "ssh ${SSH_OPTS}" \

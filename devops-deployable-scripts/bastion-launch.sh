@@ -65,6 +65,9 @@ if [[ "$DRY_RUN" == "true" ]]; then
   DRY_RUN_ARG=(--dry-run)
 fi
 
+# Helper function to safely expand arrays in bash/zsh with 'set -u'
+expand_array() { echo "${@+${@}}"; }
+
 # Determine whether env value is a Launch Template ID or Name
 LT_SPEC=()
 if [[ "$DB_BASTION_EC2_TEMPLATE" =~ ^lt- ]]; then
@@ -80,8 +83,8 @@ echo
 
 INSTANCE_ID="$(
   aws ec2 run-instances \
-    "${AWS_REGION_ARG[@]}" \
-    "${DRY_RUN_ARG[@]}" \
+    ${AWS_REGION_ARG[@]+"${AWS_REGION_ARG[@]}"} \
+    ${DRY_RUN_ARG[@]+"${DRY_RUN_ARG[@]}"} \
     --launch-template "${LT_SPEC[*]}" \
     --count "$INSTANCE_COUNT" \
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${TAG_NAME}}]" \
@@ -97,11 +100,11 @@ fi
 
 echo "InstanceId: $INSTANCE_ID"
 echo "Waiting for instance to be running..."
-aws ec2 wait instance-running "${AWS_REGION_ARG[@]}" --instance-ids "$INSTANCE_ID" --profile "${AWS_PROFILE_MICHAEL}"
+aws ec2 wait instance-running ${AWS_REGION_ARG[@]+"${AWS_REGION_ARG[@]}"} --instance-ids "$INSTANCE_ID" --profile "${AWS_PROFILE_MICHAEL}"
 
 # Wait until instance passes both system and instance status checks
 echo "Waiting for EC2 status checks (system + instance) to be OK..."
-aws ec2 wait instance-status-ok "${AWS_REGION_ARG[@]}" --instance-ids "$INSTANCE_ID" --profile "${AWS_PROFILE_MICHAEL}"
+aws ec2 wait instance-status-ok ${AWS_REGION_ARG[@]+"${AWS_REGION_ARG[@]}"} --instance-ids "$INSTANCE_ID" --profile "${AWS_PROFILE_MICHAEL}"
 
 # Wait until Public IP/DNS are assigned (can take a few seconds)
 echo "Waiting for Public IP/DNS assignment..."
@@ -110,7 +113,7 @@ PUBLIC_DNS=""
 for _ in {1..60}; do
   PUBLIC_IP="$(
     aws ec2 describe-instances \
-      "${AWS_REGION_ARG[@]}" \
+      ${AWS_REGION_ARG[@]+"${AWS_REGION_ARG[@]}"} \
       --instance-ids "$INSTANCE_ID" \
       --query 'Reservations[0].Instances[0].PublicIpAddress' \
       --profile "${AWS_PROFILE_MICHAEL}" \
@@ -118,7 +121,7 @@ for _ in {1..60}; do
   )"
   PUBLIC_DNS="$(
     aws ec2 describe-instances \
-      "${AWS_REGION_ARG[@]}" \
+      ${AWS_REGION_ARG[@]+"${AWS_REGION_ARG[@]}"} \
       --instance-ids "$INSTANCE_ID" \
       --query 'Reservations[0].Instances[0].PublicDnsName' \
       --profile "${AWS_PROFILE_MICHAEL}" \

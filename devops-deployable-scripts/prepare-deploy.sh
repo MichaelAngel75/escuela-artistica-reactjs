@@ -43,12 +43,19 @@ REMOTE_TAG="$2"     # e.g. mabels_rescue_v5
 # Config
 ########################################
 
-AWS_PROFILE="pohualizcalliTerraform"
+# Use IAM role when running on EC2, fall back to profile for local execution
+AWS_PROFILE="${AWS_PROFILE:-pohualizcalliTerraform}"
 AWS_REGION="us-east-1"
 ECR_ACCOUNT_ID="237019685937"
 ECR_REPO_NAME="pohualizcalli-admin"
 ECR_REGISTRY="${ECR_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 ECR_REPO="${ECR_REGISTRY}/${ECR_REPO_NAME}"
+
+# # Detect if running on EC2 (use IAM role instead of profile)
+# if curl -s --connect-timeout 1 http://169.254.169.254/latest/meta-data/iam/security-credentials/ >/dev/null 2>&1; then
+#   echo "Detected EC2 instance - using IAM role for authentication"
+#   unset AWS_PROFILE
+# fi
 
 LOG_FILE="${REPO_ROOT}/deploy_$(date +%Y%m%d_%H%M%S).log"
 
@@ -62,7 +69,7 @@ exec > >(tee -i "${LOG_FILE}") 2>&1
 echo "===== ENVIRONMENT INFO ====="
 echo "LOCAL_IMAGE = ${LOCAL_IMAGE}"
 echo "REMOTE_TAG  = ${REMOTE_TAG}"
-echo "AWS_PROFILE = ${AWS_PROFILE}"
+echo "AWS_PROFILE = ${AWS_PROFILE:-<using-iam-role>}"
 echo "AWS_REGION  = ${AWS_REGION}"
 echo "ECR_REPO    = ${ECR_REPO}"
 echo
@@ -113,9 +120,11 @@ echo 'current directory before yarn install'
 
 
 echo "===== STEP 2: Docker login → build → tag → push ====="
-aws ecr get-login-password \
-  --region "${AWS_REGION}" \
-  --profile "${AWS_PROFILE}" \
+ECR_LOGIN_ARGS=(--region "${AWS_REGION}")
+if [ -n "${AWS_PROFILE:-}" ]; then
+  ECR_LOGIN_ARGS+=(--profile "${AWS_PROFILE}")
+fi
+aws ecr get-login-password "${ECR_LOGIN_ARGS[@]}" \
   | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
 docker build -t "${LOCAL_IMAGE}" "${REPO_ROOT}"
@@ -142,18 +151,26 @@ fi
 
 cd "${TF_DIR}"
 
-terraform init \
-  -backend-config="profile=${AWS_PROFILE}" \
-  -var="aws_profile=${AWS_PROFILE}"
+TF_INIT_ARGS=(-reconfigure)
+if [ -n "${AWS_PROFILE:-}" ]; then
+  TF_INIT_ARGS+=(-backend-config="profile=${AWS_PROFILE}")
+  TF_INIT_ARGS+=(-var="aws_profile=${AWS_PROFILE}")
+fi
+terraform init "${TF_INIT_ARGS[@]}"
 
-terraform plan \
-  -var="aws_profile=${AWS_PROFILE}" \
-  -var="ecr_remote_tag=${REMOTE_TAG}"
+TF_PLAN_ARGS=()
+if [ -n "${AWS_PROFILE:-}" ]; then
+  TF_PLAN_ARGS+=(-var="aws_profile=${AWS_PROFILE}")
+fi
+TF_PLAN_ARGS+=(-var="ecr_remote_tag=${REMOTE_TAG}" -input=false)
+terraform plan "${TF_PLAN_ARGS[@]}"
 
-terraform apply \
-  -var="aws_profile=${AWS_PROFILE}" \
-  -var="ecr_remote_tag=${REMOTE_TAG}" \
-  -auto-approve
+TF_APPLY_ARGS=()
+if [ -n "${AWS_PROFILE:-}" ]; then
+  TF_APPLY_ARGS+=(-var="aws_profile=${AWS_PROFILE}")
+fi
+TF_APPLY_ARGS+=(-var="ecr_remote_tag=${REMOTE_TAG}" -auto-approve)
+terraform apply "${TF_APPLY_ARGS[@]}"
 
 echo
 echo "===== DEPLOYMENT COMPLETE ====="
