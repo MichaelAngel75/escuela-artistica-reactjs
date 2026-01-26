@@ -30,19 +30,19 @@ logger.setLevel(logging.INFO)
 # -----------------------------------------------------------------------------
 # ENV VARS (required)
 # -----------------------------------------------------------------------------
-API_KEY = os.environ.get("MY-API-KEY")  # required
+API_KEY = os.environ.get("POHUALIZCALLI_API_KEY")  # required
 if not API_KEY:
     # raise at import time so you fail fast in Lambda configuration
-    raise RuntimeError("Missing required env var: MY-API-KEY")
+    raise RuntimeError("Missing required env var: POHUALIZCALLI_API_KEY")
 
-ADMIN_BASE = os.environ.get("ADMIN_BASE", "https://admin.my-website.com/internal")
-RESOURCES_BASE_URL = os.environ.get("RESOURCES_BASE_URL", "https://resources.my-website.com")
+POHUALIZCALLI_ADMIN_BASE_URL = os.environ.get("POHUALIZCALLI_ADMIN_BASE_URL", "https://admin.my-website.com/internal")
+POHUALIZCALLI_RESOURCES_BASE_URL = os.environ.get("POHUALIZCALLI_RESOURCES_BASE_URL", "https://resources.my-website.com")
 
 # Required for uploading ZIP to S3 (bucket behind resources.my-website.com)
 # Example: "resources.my-website.com"
-RESOURCES_BUCKET = os.environ.get("RESOURCES_BUCKET")
-if not RESOURCES_BUCKET:
-    raise RuntimeError("Missing required env var: RESOURCES_BUCKET")
+POHUALIZCALLI_RESOURCES_BUCKET = os.environ.get("POHUALIZCALLI_RESOURCES_BUCKET")
+if not POHUALIZCALLI_RESOURCES_BUCKET:
+    raise RuntimeError("Missing required env var: POHUALIZCALLI_RESOURCES_BUCKET")
 
 API_KEY_HEADER = "api-key-pohualizcalli"
 
@@ -75,7 +75,7 @@ def admin_get(path: str) -> Any:
     """
     GET https://admin.../internal/<path>
     """
-    url = ADMIN_BASE.rstrip("/") + path
+    url = POHUALIZCALLI_ADMIN_BASE_URL.rstrip("/") + path
     logger.info("GET %s", url)
     r = requests.get(url, headers=_headers(), timeout=30)
     r.raise_for_status()
@@ -86,7 +86,7 @@ def admin_patch(path: str, payload: Dict[str, Any]) -> Any:
     """
     PATCH https://admin.../internal/<path>
     """
-    url = ADMIN_BASE.rstrip("/") + path
+    url = POHUALIZCALLI_ADMIN_BASE_URL.rstrip("/") + path
     logger.info("PATCH %s payload=%s", url, payload)
     r = requests.patch(
         url,
@@ -528,17 +528,17 @@ def upload_zip_to_s3(zip_path: str, parent_prefix: str, original_file: str) -> s
       https://resources.../<key>
     """
     key = f"{parent_prefix}/diploma-generated/{original_file}.zip"
-    logger.info("Uploading ZIP to s3://%s/%s", RESOURCES_BUCKET, key)
+    logger.info("Uploading ZIP to s3://%s/%s", POHUALIZCALLI_RESOURCES_BUCKET, key)
 
     with open(zip_path, "rb") as f:
         s3.put_object(
-            Bucket=RESOURCES_BUCKET,
+            Bucket=POHUALIZCALLI_RESOURCES_BUCKET,
             Key=key,
             Body=f,
             ContentType="application/zip",
         )
 
-    return f"{RESOURCES_BASE_URL.rstrip('/')}/{key}"
+    return f"{POHUALIZCALLI_RESOURCES_BASE_URL.rstrip('/')}/{key}"
 
 
 def resolve_signature_url(profesor_value: str) -> Optional[str]:

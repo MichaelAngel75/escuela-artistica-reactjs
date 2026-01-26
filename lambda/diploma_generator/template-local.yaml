@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Diploma Generator Lambda - Local Testing with SQS
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 1024
+    Runtime: python3.14
+    Architectures:
+      - x86_64
+
+Resources:
+  DiplomaGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub diploma-generator-${Environment}
+      CodeUri: .
+      Handler: handler.lambda_handler
+      Description: Generates diploma PDFs from CSV data triggered by SQS
+      Environment:
+        Variables:
+          POHUALIZCALLI_API_KEY: ${MY_API_KEY}
+          POHUALIZCALLI_ADMIN_BASE_URL: ${POHUALIZCALLI_ADMIN_BASE_URL}
+          POHUALIZCALLI_RESOURCES_BASE_URL: ${POHUALIZCALLI_RESOURCES_BASE_URL}
+          POHUALIZCALLI_RESOURCES_BUCKET: ${POHUALIZCALLI_RESOURCES_BUCKET}
+      Policies:
+        - S3FullAccessPolicy:
+            BucketName: "*"
+        - SSMParameterReadPolicy:
+            ParameterName: "pohualizcalli/*"
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt DiplomaGenerationQueue.Arn
+            BatchSize: 1
+
+  DiplomaGenerationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub pohualizcalli-diploma-generation-sqs-${Environment}
+      VisibilityTimeout: 360
+      MessageRetentionPeriod: 1209600
+
+  DiplomaGeneratorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/diploma-generator-${Environment}
+      RetentionInDays: 14
+
+Outputs:
+  DiplomaGeneratorFunctionArn:
+    Description: Diploma Generator Lambda Function ARN
+    Value: !GetAtt DiplomaGeneratorFunction.Arn
+  QueueUrl:
+    Description: SQS Queue URL
+    Value: !Ref DiplomaGenerationQueue

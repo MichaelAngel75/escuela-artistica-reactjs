@@ -8,3 +8,8 @@ vite.config.ts.*
 .local
 *.log
 .terraform
+
+# Lambda local testing (contains secrets)
+lambda/**/env.json
+.aws-sam/
+.envrc

@@ -20,8 +20,8 @@
 
 #     POHUALIZCALLI_SSM_PARAM_NAME = POHUALIZCALLI_SSM_ENV_VARIABLE_NAME   # SSM name holding API key
 #     ADMIN_API_BASE                = https://admin.my-website.com/internal
-#     RESOURCES_BASE_URL            = https://resources.my-website.com      # public URL base
-#     RESOURCES_BUCKET              = resources.my-website.com              # S3 bucket behind that URL
+#     POHUALIZCALLI_RESOURCES_BASE_URL            = https://resources.my-website.com      # public URL base
+#     POHUALIZCALLI_RESOURCES_BUCKET              = resources.my-website.com              # S3 bucket behind that URL
 
 # =============================================================================================================
 
@@ -97,8 +97,8 @@ s3 = boto3.client("s3")
 # ---------------------------------------------------------------------------
 SSM_PARAM_NAME = os.environ.get("POHUALIZCALLI_SSM_PARAM_NAME", "POHUALIZCALLI_SSM_ENV_VARIABLE_NAME")
 ADMIN_API_BASE = os.environ.get("ADMIN_API_BASE", "https://admin.my-website.com/internal")
-RESOURCES_BASE_URL = os.environ.get("RESOURCES_BASE_URL", "https://resources.my-website.com")
-RESOURCES_BUCKET = os.environ.get("RESOURCES_BUCKET", "resources.my-website.com")
+POHUALIZCALLI_RESOURCES_BASE_URL = os.environ.get("POHUALIZCALLI_RESOURCES_BASE_URL", "https://resources.my-website.com")
+POHUALIZCALLI_RESOURCES_BUCKET = os.environ.get("POHUALIZCALLI_RESOURCES_BUCKET", "resources.my-website.com")
 
 API_KEY_HEADER_NAME = "api-key-pohualizcalli"
 
@@ -538,16 +538,16 @@ def upload_zip_to_s3(local_zip_path: str, csv_path_rel: str, original_file_name:
     parent = os.path.dirname(csv_path_rel)
     zip_key = f"{parent}/diploma-generated/{original_file_name}.zip"
 
-    logger.info("Uploading ZIP to s3://%s/%s", RESOURCES_BUCKET, zip_key)
+    logger.info("Uploading ZIP to s3://%s/%s", POHUALIZCALLI_RESOURCES_BUCKET, zip_key)
     with open(local_zip_path, "rb") as f:
         s3.put_object(
-            Bucket=RESOURCES_BUCKET,
+            Bucket=POHUALIZCALLI_RESOURCES_BUCKET,
             Key=zip_key,
             Body=f,
             ContentType="application/zip",
         )
 
-    url = f"{RESOURCES_BASE_URL.rstrip('/')}/{zip_key}"
+    url = f"{POHUALIZCALLI_RESOURCES_BASE_URL.rstrip('/')}/{zip_key}"
     logger.info("ZIP public URL: %s", url)
     return url
 
