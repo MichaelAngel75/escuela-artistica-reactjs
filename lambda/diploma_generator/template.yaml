@@ -1,86 +1,222 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Diploma Generator Lambda Function
+Description: >
+  Diploma Generator Lambda Function
+  Generates PDF diplomas from CSV data, triggered by SQS messages
+  Uses existing SQS queue: pohualizcalli-diploma-generation-sqs
 
 Parameters:
   Environment:
     Type: String
-    Default: dev
+    Default: prod
     AllowedValues:
       - dev
       - staging
       - prod
-  TemplateBucket:
+    Description: Deployment environment
+
+  PohualizcalliApiKey:
     Type: String
-    Description: S3 bucket containing PDF templates
-  SignaturesBucket:
+    NoEcho: true
+    Description: API key for internal REST endpoints
+
+  PohualizcalliAdminBaseUrl:
     Type: String
-    Description: S3 bucket containing signature images
-  OutputBucket:
+    Default: https://admin.pohualizcalli.link/internal
+    Description: Base URL for admin API
+
+  PohualizcalliResourcesBaseUrl:
     Type: String
-    Description: S3 bucket for generated ZIP files
+    Default: https://resources.pohualizcalli.link
+    Description: Base URL for resources
+
+  PohualizcalliResourcesBucket:
+    Type: String
+    Default: pohualizcalli-several-files
+    Description: S3 bucket name for resources
+
+  # Existing SQS Queue configuration
+  ExistingSqsQueueName:
+    Type: String
+    Default: pohualizcalli-diploma-generation-sqs
+    Description: Name of existing SQS queue to use as trigger
 
 Globals:
   Function:
     Timeout: 300
     MemorySize: 1024
-    Runtime: python3.14
+    Runtime: python3.11
     Architectures:
       - x86_64
+    Tracing: Active
 
 Resources:
+  # =============================================================================
+  # Lambda Function
+  # =============================================================================
   DiplomaGeneratorFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub diploma-generator-${Environment}
       CodeUri: .
-      Handler: handler.handler
-      Description: Generates diploma PDFs from CSV data
+      Handler: handler.lambda_handler
+      Description: Generates diploma PDFs from CSV data triggered by SQS
       Environment:
         Variables:
-          TEMPLATE_BUCKET: !Ref TemplateBucket
-          SIGNATURES_BUCKET: !Ref SignaturesBucket
-          SIGNATURES_PREFIX: signatures/
-          OUTPUT_BUCKET: !Ref OutputBucket
+          POHUALIZCALLI_API_KEY: !Ref PohualizcalliApiKey
+          POHUALIZCALLI_ADMIN_BASE_URL: !Ref PohualizcalliAdminBaseUrl
+          POHUALIZCALLI_RESOURCES_BASE_URL: !Ref PohualizcalliResourcesBaseUrl
+          POHUALIZCALLI_RESOURCES_BUCKET: !Ref PohualizcalliResourcesBucket
+          ENVIRONMENT: !Ref Environment
+
+      # IAM Policies - All permissions the Lambda needs
       Policies:
-        - S3ReadPolicy:
-            BucketName: !Ref TemplateBucket
-        - S3ReadPolicy:
-            BucketName: !Ref SignaturesBucket
-        - S3CrudPolicy:
-            BucketName: !Ref OutputBucket
+        # S3 Access - Read CSV, Write ZIP
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: S3ReadWriteAccess
+              Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:ListBucket
+              Resource:
+                - !Sub arn:aws:s3:::${PohualizcalliResourcesBucket}
+                - !Sub arn:aws:s3:::${PohualizcalliResourcesBucket}/*
+
+        # SSM Parameter Store Access (for secrets)
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: SSMParameterAccess
+              Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:GetParameters
+                - ssm:GetParametersByPath
+              Resource:
+                - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/pohualizcalli/*
+
+        # CloudWatch Logs (auto-created by SAM, but explicit for clarity)
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource:
+                - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/diploma-generator-${Environment}:*
+
+        # X-Ray Tracing
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: XRayAccess
+              Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+              Resource: "*"
+
       Events:
-        S3Upload:
-          Type: S3
+        # SQS Trigger - Use EXISTING queue
+        SQSEvent:
+          Type: SQS
           Properties:
-            Bucket: !Ref CSVUploadBucket
-            Events: s3:ObjectCreated:*
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: suffix
-                    Value: .csv
+            Queue: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${ExistingSqsQueueName}
+            BatchSize: 1
+            Enabled: true
 
-  CSVUploadBucket:
-    Type: AWS::S3::Bucket
+  # =============================================================================
+  # Dead Letter Queue for failed messages
+  # Name: pohualizcalli-diploma-generation-sqs-error
+  # =============================================================================
+  DiplomaGenerationDLQ:
+    Type: AWS::SQS::Queue
     Properties:
-      BucketName: !Sub diploma-csv-uploads-${Environment}-${AWS::AccountId}
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+      QueueName: pohualizcalli-diploma-generation-sqs-error
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 360
 
+  # =============================================================================
+  # CloudWatch Log Group with retention
+  # =============================================================================
   DiplomaGeneratorLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/diploma-generator-${Environment}
       RetentionInDays: 14
 
+  # =============================================================================
+  # CloudWatch Alarms for monitoring
+  # =============================================================================
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub diploma-generator-${Environment}-errors
+      AlarmDescription: Alarm when Lambda function has errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DiplomaGeneratorFunction
+
+  DLQMessageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: diploma-generator-dlq-messages
+      AlarmDescription: Alarm when messages arrive in DLQ (pohualizcalli-diploma-generation-sqs-error)
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DiplomaGenerationDLQ.QueueName
+
+# =============================================================================
+# Outputs
+# =============================================================================
 Outputs:
   DiplomaGeneratorFunctionArn:
-    Description: Diploma Generator Lambda Function ARN
+    Description: Lambda Function ARN
     Value: !GetAtt DiplomaGeneratorFunction.Arn
-  CSVUploadBucketName:
-    Description: S3 bucket for CSV uploads
-    Value: !Ref CSVUploadBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-FunctionArn
+
+  DiplomaGeneratorFunctionName:
+    Description: Lambda Function Name
+    Value: !Ref DiplomaGeneratorFunction
+
+  ExistingQueueArn:
+    Description: Existing SQS Queue ARN (trigger)
+    Value: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${ExistingSqsQueueName}
+
+  DLQUrl:
+    Description: Dead Letter Queue URL
+    Value: !Ref DiplomaGenerationDLQ
+
+  DLQArn:
+    Description: Dead Letter Queue ARN
+    Value: !GetAtt DiplomaGenerationDLQ.Arn
+
+  LogGroupName:
+    Description: CloudWatch Log Group
+    Value: !Ref DiplomaGeneratorLogGroup
+
+  ConfigureRedrivePolicy:
+    Description: >
+      IMPORTANT - Run this command to configure DLQ on your existing SQS queue
+    Value: !Sub |
+      aws sqs set-queue-attributes \
+        --queue-url https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/${ExistingSqsQueueName} \
+        --attributes '{"RedrivePolicy":"{\"deadLetterTargetArn\":\"arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:pohualizcalli-diploma-generation-sqs-error\",\"maxReceiveCount\":\"3\"}"}' \
+        --profile pohualizcalliTerraform

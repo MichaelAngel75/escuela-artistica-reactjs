@@ -13,3 +13,4 @@ vite.config.ts.*
 lambda/**/env.json
 .aws-sam/
 .envrc
+*.toml

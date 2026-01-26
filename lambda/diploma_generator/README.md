@@ -36,7 +36,7 @@ This Lambda function:
 {
   "created_by": "user@example.com",
   "file_name": "diploma-datos-02.csv",
-  "csv_url": "https://files.example.com/generacion-diplomas/generated-diplomas/2026-01-25/proceso-3/diploma-datos-02.csv",
+  "csv_url": "https://resources.pohualizcalli.link/generacion-diplomas/generated-diplomas/2026-01-25/proceso-3/diploma-datos-02.csv",
   "batch_id": 3
 }
 ```
@@ -55,9 +55,38 @@ Carlos López,Taller de Machine Learning,Marzo de 2025,Mauricio Sanchez
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `POHUALIZCALLI_API_KEY` | API key for internal REST endpoints | Yes |
-| `POHUALIZCALLI_ADMIN_BASE_URL` | Base URL for admin API (e.g., `https://admin.example.com/internal`) | Yes |
-| `POHUALIZCALLI_RESOURCES_BASE_URL` | Base URL for resources (e.g., `https://files.example.com`) | Yes |
+| `POHUALIZCALLI_ADMIN_BASE_URL` | Base URL for admin API | Yes |
+| `POHUALIZCALLI_RESOURCES_BASE_URL` | Base URL for resources | Yes |
 | `POHUALIZCALLI_RESOURCES_BUCKET` | S3 bucket name for uploading ZIP files | Yes |
+
+---
+
+## Quick Start
+
+### 1. Set Environment Variables
+
+Add to `~/.zshrc`:
+```bash
+export POHUALIZCALLI_API_KEY="your-api-key-here"
+export POHUALIZCALLI_ADMIN_BASE_URL="https://admin.pohualizcalli.link/internal"
+export POHUALIZCALLI_RESOURCES_BASE_URL="https://resources.pohualizcalli.link"
+export POHUALIZCALLI_RESOURCES_BUCKET="resources.pohualizcalli.link"
+```
+
+Reload: `source ~/.zshrc`
+
+### 2. Local Testing
+
+```bash
+cd lambda/diploma_generator
+./run-local.sh
+```
+
+### 3. Deploy to AWS
+
+```bash
+./deploy.sh prod
+```
 
 ---
 
@@ -67,277 +96,191 @@ Carlos López,Taller de Machine Learning,Marzo de 2025,Mauricio Sanchez
 
 - [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
 - [Docker](https://www.docker.com/products/docker-desktop/)
-- Python 3.11
-- AWS CLI configured with appropriate profile
+- Python 3.11 (or use `--use-container` flag)
+- AWS CLI configured with `pohualizcalliTerraform` profile
 
-### Setup
+### Running Locally (Recommended)
 
-1. **Navigate to Lambda directory:**
-   ```bash
-   cd lambda/diploma_generator
-   ```
-
-2. **Configure environment variables:**
-
-   Edit `env.json` with your real values:
-   ```json
-   {
-     "DiplomaGeneratorFunction": {
-       "POHUALIZCALLI_API_KEY": "your-real-api-key-here",
-       "POHUALIZCALLI_ADMIN_BASE_URL": "https://admin.pohualizcalli.com/internal",
-       "POHUALIZCALLI_RESOURCES_BASE_URL": "https://files.pohualizcalli-02.com",
-       "POHUALIZCALLI_RESOURCES_BUCKET": "files.pohualizcalli-02.com"
-     }
-   }
-   ```
-
-3. **Configure test event:**
-
-   Edit `events/sqs-test-event.json` with your test data:
-   ```json
-   {
-     "Records": [
-       {
-         "messageId": "test-message-001",
-         "body": "{\"created_by\":\"test@example.com\",\"file_name\":\"diploma-datos.csv\",\"csv_url\":\"https://your-bucket.com/path/to/diploma-datos.csv\",\"batch_id\":1}",
-         "eventSource": "aws:sqs",
-         "awsRegion": "us-east-1"
-       }
-     ]
-   }
-   ```
-
-### Running Locally
+Use the provided script that reads env vars from your system:
 
 ```bash
-# Build the Lambda
-sam build --template template-local.yaml
+cd lambda/diploma_generator
+./run-local.sh
+```
 
-# Build the Lambda (in a container x86_64 vs Mac ARM)
+The script will:
+1. Validate all required environment variables
+2. Auto-run `sam build --use-container` if needed
+3. Invoke the Lambda with your system environment variables
+
+### Manual Local Invocation
+
+```bash
+# Build (use container for x86_64 compatibility on ARM Mac)
 sam build --template template-local.yaml --use-container
 
-# Invoke with test event
+# Invoke with the BUILT template
 sam local invoke DiplomaGeneratorFunction \
-  --template template-local.yaml \
+  --template .aws-sam/build/template.yaml \
   --event events/sqs-test-event.json \
   --env-vars env.json \
   --profile pohualizcalliTerraform
-
-# Run with debug logging
-sam local invoke DiplomaGeneratorFunction \
-  --template template-local.yaml \
-  --event events/sqs-test-event.json \
-  --env-vars env.json \
-  --profile pohualizcalliTerraform \
-  --debug
 ```
 
-### Start Local Lambda Endpoint
+**Important:** Use `.aws-sam/build/template.yaml` (not `template-local.yaml`) after building to include dependencies.
 
-For integration testing:
-```bash
-sam local start-lambda \
-  --template template-local.yaml \
-  --env-vars env.json \
-  --profile pohualizcalliTerraform \
-  --port 3001
-```
+## AWS Deployment with SAM
 
+### Method 1: Using Deploy Script (Recommended)
+
+  # 1. Delete failed stack                                                                                                                                                                              
+  aws cloudformation delete-stack --stack-name diploma-generator-prod --profile <AWS_PROFILE>    
+  aws cloudformation wait stack-delete-complete --stack-name diploma-generator-prod --profile <AWS_PROFILE>                                                                                                                                                                                                 
+  # 2. Fix SQS visibility timeout                                                                                                                                                                       
+  ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --profile <AWS_PROFILE>)                                                                                                              
+  aws sqs set-queue-attributes                                         
+    --queue-url "https://sqs.us-east-1.amazonaws.com/$ACCOUNT_ID/pohualizcalli-diploma-generation-sqs"       
+    --attributes '{"VisibilityTimeout":"360"}'            
+    --profile <AWS_PROFILE>                                                                                                                                                                                                     
+  # 3. Re-deploy                                                             
+  ./deploy.sh prod 
 ---
 
-## AWS Deployment
-
-### Option 1: Deploy with SAM CLI
+ 
 
 ```bash
-# Build
-sam build --template template-local.yaml
+# Deploy to production
+./deploy.sh prod
 
-# Deploy (guided - first time)
+# Deploy to development
+./deploy.sh dev
+```
+
+### Method 2: Manual SAM Commands
+
+```bash
+# Step 1: Validate template
+sam validate --template template.yaml --profile pohualizcalliTerraform
+
+# Step 2: Build
+sam build --template template.yaml --use-container
+
+# Step 3: Deploy (first time - guided)
 sam deploy --guided --profile pohualizcalliTerraform
 
-# Deploy (subsequent)
-sam deploy --profile pohualizcalliTerraform
+# Step 3: Deploy (subsequent)
+sam deploy \
+  --config-env prod \
+  --parameter-overrides "PohualizcalliApiKey=$POHUALIZCALLI_API_KEY" \
+  --profile pohualizcalliTerraform
 ```
 
-### Option 2: Manual Deployment
+### Deployment Parameters
 
-1. **Create deployment package:**
-   ```bash
-   # Install dependencies
-   pip install -r requirements.txt -t ./package
+The `template.yaml` accepts these parameters:
 
-   # Copy handler
-   cp handler.py ./package/
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `Environment` | `prod` | Environment name (dev/staging/prod) |
+| `PohualizcalliApiKey` | - | API key (prompted, NoEcho) |
+| `PohualizcalliAdminBaseUrl` | `https://admin.pohualizcalli.link/internal` | Admin API URL |
+| `PohualizcalliResourcesBaseUrl` | `https://resources.pohualizcalli.link` | Resources URL |
+| `PohualizcalliResourcesBucket` | `resources.pohualizcalli.link` | S3 bucket name |
+| `ExistingSqsQueueArn` | `""` | Existing SQS ARN (empty = create new) |
 
-   # Create ZIP
-   cd package && zip -r ../deployment.zip . && cd ..
-   ```
+### What SAM Deploys
 
-2. **Upload to Lambda via AWS Console or CLI:**
-   ```bash
-   aws lambda update-function-code \
-     --function-name diploma-generator-prod \
-     --zip-file fileb://deployment.zip \
-     --profile pohualizcalliTerraform
-   ```
+The deployment creates:
 
-### Option 3: Deploy with Terraform
-
-Create `main.tf`:
-```hcl
-resource "aws_lambda_function" "diploma_generator" {
-  function_name = "diploma-generator-${var.environment}"
-  role          = aws_iam_role.lambda_role.arn
-  handler       = "handler.lambda_handler"
-  runtime       = "python3.11"
-  timeout       = 300
-  memory_size   = 1024
-
-  filename         = "deployment.zip"
-  source_code_hash = filebase64sha256("deployment.zip")
-
-  environment {
-    variables = {
-      "POHUALIZCALLI_API_KEY"         = var.api_key
-      "POHUALIZCALLI_ADMIN_BASE_URL"         = var.admin_base_url
-      "POHUALIZCALLI_RESOURCES_BASE_URL" = var.resources_base_url
-      "POHUALIZCALLI_RESOURCES_BUCKET"   = var.resources_bucket
-    }
-  }
-
-  # VPC Configuration (if using private subnet)
-  # vpc_config {
-  #   subnet_ids         = var.private_subnet_ids
-  #   security_group_ids = [aws_security_group.lambda_sg.id]
-  # }
-}
-
-resource "aws_lambda_event_source_mapping" "sqs_trigger" {
-  event_source_arn = aws_sqs_queue.diploma_queue.arn
-  function_name    = aws_lambda_function.diploma_generator.arn
-  batch_size       = 1
-}
-```
+| Resource | Description |
+|----------|-------------|
+| **Lambda Function** | `diploma-generator-{env}` with all permissions |
+| **SQS Queue** | `pohualizcalli-diploma-generation-sqs-{env}` |
+| **Dead Letter Queue** | `pohualizcalli-diploma-generation-dlq-{env}` |
+| **CloudWatch Log Group** | `/aws/lambda/diploma-generator-{env}` (14-day retention) |
+| **CloudWatch Alarms** | Error alarm + DLQ message alarm |
+| **IAM Role** | Auto-created with all required permissions |
 
 ---
 
-## IAM Permissions
+## IAM Permissions (Auto-Created by SAM)
 
-### Required IAM Policy
+SAM automatically creates an IAM role with these permissions:
 
+### S3 Access
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "S3Access",
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:ListBucket"
-      ],
-      "Resource": [
-        "arn:aws:s3:::files.pohualizcalli-02.com",
-        "arn:aws:s3:::files.pohualizcalli-02.com/*"
-      ]
-    },
-    {
-      "Sid": "SQSAccess",
-      "Effect": "Allow",
-      "Action": [
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:GetQueueAttributes"
-      ],
-      "Resource": "arn:aws:sqs:us-east-1:*:pohualizcalli-diploma-generation-sqs"
-    },
-    {
-      "Sid": "SSMParameterAccess",
-      "Effect": "Allow",
-      "Action": [
-        "ssm:GetParameter",
-        "ssm:GetParameters"
-      ],
-      "Resource": "arn:aws:ssm:us-east-1:*:parameter/pohualizcalli/*"
-    },
-    {
-      "Sid": "CloudWatchLogs",
-      "Effect": "Allow",
-      "Action": [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-      ],
-      "Resource": "arn:aws:logs:us-east-1:*:log-group:/aws/lambda/diploma-generator-*:*"
-    }
+  "Sid": "S3ReadWriteAccess",
+  "Effect": "Allow",
+  "Action": ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
+  "Resource": [
+    "arn:aws:s3:::resources.pohualizcalli.link",
+    "arn:aws:s3:::resources.pohualizcalli.link/*"
   ]
 }
 ```
 
-### If Using VPC (add these permissions)
-
+### SQS Access (Auto-added for SQS trigger)
 ```json
 {
-  "Sid": "VPCNetworkInterfaces",
+  "Sid": "SQSAccess",
   "Effect": "Allow",
-  "Action": [
-    "ec2:CreateNetworkInterface",
-    "ec2:DescribeNetworkInterfaces",
-    "ec2:DeleteNetworkInterface",
-    "ec2:AssignPrivateIpAddresses",
-    "ec2:UnassignPrivateIpAddresses"
-  ],
+  "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+  "Resource": "arn:aws:sqs:us-east-1:*:pohualizcalli-diploma-generation-sqs-*"
+}
+```
+
+### SSM Parameter Store Access
+```json
+{
+  "Sid": "SSMParameterAccess",
+  "Effect": "Allow",
+  "Action": ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"],
+  "Resource": "arn:aws:ssm:us-east-1:*:parameter/pohualizcalli/*"
+}
+```
+
+### CloudWatch Logs
+```json
+{
+  "Sid": "CloudWatchLogsAccess",
+  "Effect": "Allow",
+  "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+  "Resource": "arn:aws:logs:us-east-1:*:log-group:/aws/lambda/diploma-generator-*:*"
+}
+```
+
+### X-Ray Tracing
+```json
+{
+  "Sid": "XRayAccess",
+  "Effect": "Allow",
+  "Action": ["xray:PutTraceSegments", "xray:PutTelemetryRecords"],
   "Resource": "*"
 }
 ```
 
-### Lambda Trust Policy (Role)
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "lambda.aws.amazon.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-```
+### REST API Calls
+**No special IAM permissions needed** - the Lambda calls external HTTPS endpoints using the `requests` library with API key authentication. This works by default since Lambda has internet access (when not in VPC).
 
 ---
 
 ## VPC Recommendations
 
-### Decision Matrix
-
-| Factor | Public Subnet | Private Subnet | No VPC |
-|--------|---------------|----------------|--------|
-| Internet access | Direct via IGW | Via NAT Gateway | Direct |
-| Security | Less secure (public IP) | Most secure (no public IP) | Medium |
-| Cost | Lower (no NAT) | Higher (NAT ~$32/mo) | Lowest |
-| Cold start | Faster | Slower (+1-2s for ENI) | Fastest |
-| Compliance | May not meet requirements | Meets most compliance | Depends |
-
 ### Recommendation: **No VPC** (for this use case)
 
-For this Lambda, I recommend **NOT using a VPC** because:
+For this Lambda, **do NOT use a VPC** because:
 
 1. **All external resources are public HTTPS endpoints:**
-   - Admin API (`https://admin.pohualizcalli.com`) - public with API key auth
-   - S3 bucket (`files.pohualizcalli-02.com`) - accessible via IAM
-   - No private databases or internal services to access
+   - Admin API (`https://admin.pohualizcalli.link`) - public with API key auth
+   - S3 bucket - accessible via IAM (public endpoint)
+   - No private databases or internal services
 
 2. **Benefits of No VPC:**
    - Faster cold starts (no ENI provisioning)
-   - Lower cost (no NAT Gateway fees)
+   - Lower cost (no NAT Gateway fees ~$32/mo)
    - Simpler configuration
-   - No VPC capacity issues
+   - No VPC capacity limits
 
 3. **Security is maintained via:**
    - API key authentication for REST endpoints
@@ -345,65 +288,21 @@ For this Lambda, I recommend **NOT using a VPC** because:
    - HTTPS encryption in transit
    - CloudWatch logging for audit
 
-### When to Use Private Subnet
+### When to Use VPC
 
-Use a **private subnet with NAT Gateway** if:
-- You need to access resources inside a VPC (RDS, ElastiCache, internal APIs)
+Use a **private subnet with NAT Gateway** only if:
+- Accessing resources inside a VPC (RDS, ElastiCache, internal APIs)
 - Compliance requires network isolation (PCI-DSS, HIPAA)
-- You want to control egress traffic via security groups
-
-### Private Subnet Architecture (if needed)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                            VPC                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Private Subnet                        │    │
-│  │   ┌──────────────┐                                      │    │
-│  │   │    Lambda    │──────┐                               │    │
-│  │   └──────────────┘      │                               │    │
-│  │          │              │                               │    │
-│  │          │              ▼                               │    │
-│  │          │    ┌─────────────────┐                       │    │
-│  │          │    │  S3 VPC Endpoint │ ───▶ S3 Bucket       │    │
-│  │          │    └─────────────────┘                       │    │
-│  │          │                                              │    │
-│  │          ▼                                              │    │
-│  │   ┌─────────────┐                                       │    │
-│  │   │ NAT Gateway │ ───▶ Internet Gateway ───▶ Admin API  │    │
-│  │   └─────────────┘                                       │    │
-│  └─────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-If using VPC, add these endpoints to reduce NAT costs:
-```hcl
-# S3 Gateway Endpoint (free)
-resource "aws_vpc_endpoint" "s3" {
-  vpc_id       = var.vpc_id
-  service_name = "com.amazonaws.us-east-1.s3"
-  route_table_ids = var.private_route_table_ids
-}
-
-# SSM Interface Endpoint (if using SSM)
-resource "aws_vpc_endpoint" "ssm" {
-  vpc_id              = var.vpc_id
-  service_name        = "com.amazonaws.us-east-1.ssm"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = var.private_subnet_ids
-  security_group_ids  = [aws_security_group.vpce_sg.id]
-  private_dns_enabled = true
-}
-```
+- Need to control egress traffic
 
 ---
 
 ## Monitoring & Troubleshooting
 
-### CloudWatch Logs
+### View Logs
 
 ```bash
-# View recent logs
+# Stream logs in real-time
 aws logs tail /aws/lambda/diploma-generator-prod --follow --profile pohualizcalliTerraform
 
 # Filter for errors
@@ -413,23 +312,54 @@ aws logs filter-log-events \
   --profile pohualizcalliTerraform
 ```
 
+### Test with SQS Message
+
+```bash
+# Get queue URL from CloudFormation outputs
+QUEUE_URL=$(aws cloudformation describe-stacks \
+  --stack-name diploma-generator-prod \
+  --query 'Stacks[0].Outputs[?OutputKey==`QueueUrl`].OutputValue' \
+  --output text \
+  --profile pohualizcalliTerraform)
+
+# Send test message
+aws sqs send-message \
+  --queue-url "$QUEUE_URL" \
+  --message-body '{"created_by":"test@example.com","file_name":"test.csv","csv_url":"https://resources.pohualizcalli.link/test/diploma-datos.csv","batch_id":99}' \
+  --profile pohualizcalliTerraform
+```
+
 ### Common Issues
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| `Unable to import module 'handler'` | Missing dependencies | Rebuild with `sam build` |
-| `Task timed out` | Processing too slow | Increase timeout to 300s+ |
-| `No signature found` | Professor name mismatch | Check signature API response |
-| `Access Denied` on S3 | Missing IAM permissions | Add S3 permissions to role |
-| `Connection refused` | VPC without NAT | Add NAT Gateway or remove VPC |
-| `Missing required env var` | Environment not configured | Set all required env vars |
+| `Unable to import module 'handler'` | Missing dependencies | Use `--template .aws-sam/build/template.yaml` |
+| `No module named 'requests'` | Using source template | Rebuild with `sam build --use-container` |
+| `Task timed out` | Processing too slow | Increase timeout (default: 300s) |
+| `No signature found` | Professor name mismatch | Check `/signatures` API response |
+| `Access Denied` on S3 | Missing IAM permissions | Check IAM role policies |
+| `Missing required env var` | Env not configured | Set in Lambda console or template |
 
-### Test SQS Message Manually
+### Check Deployed Resources
 
 ```bash
-aws sqs send-message \
-  --queue-url https://sqs.us-east-1.amazonaws.com/ACCOUNT_ID/pohualizcalli-diploma-generation-sqs \
-  --message-body '{"created_by":"test@example.com","file_name":"test.csv","csv_url":"https://files.example.com/test.csv","batch_id":99}' \
+# List stack resources
+aws cloudformation describe-stack-resources \
+  --stack-name diploma-generator-prod \
+  --profile pohualizcalliTerraform
+
+# Get outputs (Queue URL, Function ARN, etc.)
+aws cloudformation describe-stacks \
+  --stack-name diploma-generator-prod \
+  --query 'Stacks[0].Outputs' \
+  --profile pohualizcalliTerraform
+```
+
+### Delete Stack
+
+```bash
+aws cloudformation delete-stack \
+  --stack-name diploma-generator-prod \
   --profile pohualizcalliTerraform
 ```
 
@@ -441,12 +371,15 @@ aws sqs send-message \
 lambda/diploma_generator/
 ├── handler.py              # Main Lambda handler
 ├── requirements.txt        # Python dependencies
-├── template-local.yaml     # SAM template for local testing (SQS trigger)
-├── template.yaml           # SAM template for deployment (S3 trigger - legacy)
+├── template.yaml           # SAM template for AWS deployment
+├── template-local.yaml     # SAM template for local testing
+├── samconfig.toml          # SAM CLI configuration
+├── run-local.sh            # Local testing script (uses system env vars)
+├── deploy.sh               # AWS deployment script
 ├── env.json                # Local environment variables (gitignored)
 ├── events/
 │   └── sqs-test-event.json # Test SQS event
-├── build.sh                # Build script for deployment package
+├── build.sh                # Manual build script
 └── README.md               # This file
 ```
 
