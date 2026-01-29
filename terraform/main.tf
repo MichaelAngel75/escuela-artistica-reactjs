@@ -424,6 +424,10 @@ resource "aws_iam_instance_profile" "ecs_instance_profile" {
 # ----------------------------------------------------
 data "aws_ssm_parameter" "ecs_optimized_ami" {
   name = "/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id"
+  ##### -----   TODO:  AL2023
+  # Switch to the recommended AL2023 ECS-optimized AMI SSM parameter:
+  # name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id"
+
   # is using ami id: ami-03c372984aa87defd
   # with location: amazon/amzn2-ami-ecs-hvm-2.0.20251119-x86_64-ebs
           # /aws/service/ecs/optimized-ami/amazon-linux-2023/<version>
@@ -433,6 +437,8 @@ resource "aws_launch_template" "ecs" {
   name_prefix   = "pohualizcalli-ecs-"
   image_id      = data.aws_ssm_parameter.ecs_optimized_ami.value
   instance_type = "t3.small"
+  ### t4g.small (Graviton/ARM) ---> Cheaper 
+  ## https://docs.aws.amazon.com/AmazonECS/latest/developerguide/retrieve-ecs-optimized_AMI.html?utm_source=chatgpt.com
 
   iam_instance_profile {
     name = aws_iam_instance_profile.ecs_instance_profile.name
@@ -458,6 +464,19 @@ sudo start ecs
 EOF
   )
 }
+
+##### -----  AL2023
+#### ----  TODO:  A safer AL2023 baseline user-data is:
+# #!/usr/bin/env bash
+# set -euo pipefail
+# echo "ECS_CLUSTER=pohualizcalli-ecs-cluster" >> /etc/ecs/ecs.config
+# # AL2023 uses dnf
+# dnf -y update
+# # Ensure ECS agent bits are current (package names may already be present on ECS-optimized AMIs)
+# dnf -y install ecs-init || true
+# systemctl enable --now docker || true
+# systemctl enable --now ecs
+
 
 # ----------------------------------------------------
 # Auto Scaling Group for ECS cluster capacity

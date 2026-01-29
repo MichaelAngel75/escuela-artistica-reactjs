@@ -68,13 +68,26 @@ fi
 # Helper function to safely expand arrays in bash/zsh with 'set -u'
 expand_array() { echo "${@+${@}}"; }
 
-# Determine whether env value is a Launch Template ID or Name
+
+
+# ========================================================================================================================
+# # Determine whether env value is a Launch Template ID or Name
+# LT_SPEC=()
+# if [[ "$DB_BASTION_EC2_TEMPLATE" =~ ^lt- ]]; then
+#   LT_SPEC=(LaunchTemplateId="$DB_BASTION_EC2_TEMPLATE",Version="1")
+# else
+#   LT_SPEC=(LaunchTemplateName="$DB_BASTION_EC2_TEMPLATE",Version="1")
+# fi
+# ========================================================================================================================
+# Determine whether env value is a Launch Template ID or Name.  ====>.     LT2023 Migration (Effective June 2026)
 LT_SPEC=()
 if [[ "$DB_BASTION_EC2_TEMPLATE" =~ ^lt- ]]; then
-  LT_SPEC=(LaunchTemplateId="$DB_BASTION_EC2_TEMPLATE",Version="1")
+  LT_SPEC=(LaunchTemplateId="$DB_BASTION_EC2_TEMPLATE",Version="2")
 else
-  LT_SPEC=(LaunchTemplateName="$DB_BASTION_EC2_TEMPLATE",Version="1")
+  LT_SPEC=(LaunchTemplateName="$DB_BASTION_EC2_TEMPLATE",Version="2")
 fi
+# ========================================================================================================================
+
 
 echo "Launching EC2 instance from Launch Template: $DB_BASTION_EC2_TEMPLATE (Version=1)"
 echo "Count: $INSTANCE_COUNT"
@@ -158,3 +171,7 @@ echo
 ssh -i "$POHUALIZCALLI_PEM" -N \
   -L "${LOCAL_TUNNEL_PORT}:${BASTION_PRIVATE_DATABASE_PORT}" \
   "${SSH_USER}@${PUBLIC_IP}"
+
+#  ssh -i "$POHUALIZCALLI_PEM" -N \
+#   -L "35998:${BASTION_PRIVATE_DATABASE_PORT}" \
+#   "ec2-user@44.199.214.229" 

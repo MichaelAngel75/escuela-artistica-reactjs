@@ -12,6 +12,8 @@ set -euo pipefail
 
 LAUNCH_TEMPLATE_VERSION="${LAUNCH_TEMPLATE_VERSION:-14}"
 
+# ========================================================================================================================
+#   TODO:    ====>.   IT LOOKS IS ALREADY USING IT ==>   LT2023 Migration (Effective June 2026)
 echo "DEBUG: Launch Template Version -> '${LAUNCH_TEMPLATE_VERSION}'"
 echo "=== 1) Launching EC2 instance from launch template ==="
 INSTANCE_ID=$(aws ec2 run-instances \
@@ -20,6 +22,17 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --profile "${AWS_PROFILE_MICHAEL}" \
   --query 'Instances[0].InstanceId' \
   --output text)
+# # ========================================================================================================================
+# #                                 TODO:      ====>.     LT2023 Migration (Effective June 2026)
+# echo "DEBUG: Launch Template Version -> '${LAUNCH_TEMPLATE_VERSION}'"
+# echo "=== 1) Launching EC2 instance from launch template ==="
+# INSTANCE_ID=$(aws ec2 run-instances \
+#   --launch-template "LaunchTemplateName=${AWS_LAUNCH_TEMPLATE_KUBERNETES},Version=15" \
+#   --count 1 \
+#   --profile "${AWS_PROFILE_MICHAEL}" \
+#   --query 'Instances[0].InstanceId' \
+#   --output text)
+
 
 echo "Launched instance: ${INSTANCE_ID}"
 
