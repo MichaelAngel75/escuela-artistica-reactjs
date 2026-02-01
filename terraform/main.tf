@@ -426,8 +426,10 @@ data "aws_ssm_parameter" "ecs_optimized_ami" {
   name = "/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id"
   ##### -----   TODO:  AL2023
   # Switch to the recommended AL2023 ECS-optimized AMI SSM parameter:
-  # name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id"
+  # name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id": ami-024ee5112d03921e2. (X86)
+  # ARM:  ami-0a101d355d07a638e  (ARM)
 
+  # ------------------------------------------------------------------------
   # is using ami id: ami-03c372984aa87defd
   # with location: amazon/amzn2-ami-ecs-hvm-2.0.20251119-x86_64-ebs
           # /aws/service/ecs/optimized-ami/amazon-linux-2023/<version>
