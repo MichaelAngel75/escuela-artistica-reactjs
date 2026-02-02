@@ -110,25 +110,25 @@ EOF
 
 log_info() {
     if [[ "$JSON_OUTPUT" == false ]]; then
-        echo -e "${BLUE}[INFO]${NC} $1"
+        echo -e "${BLUE}[INFO]${NC} $1" >&2
     fi
 }
 
 log_success() {
     if [[ "$JSON_OUTPUT" == false ]]; then
-        echo -e "${GREEN}[✅ VPC Endpoint]${NC} $1"
+        echo -e "${GREEN}[✅ VPC Endpoint]${NC} $1" >&2
     fi
 }
 
 log_warning() {
     if [[ "$JSON_OUTPUT" == false ]]; then
-        echo -e "${YELLOW}[⚠️  Warning]${NC} $1"
+        echo -e "${YELLOW}[⚠️  Warning]${NC} $1" >&2
     fi
 }
 
 log_error() {
     if [[ "$JSON_OUTPUT" == false ]]; then
-        echo -e "${RED}[❌ NAT/Public]${NC} $1"
+        echo -e "${RED}[❌ NAT/Public]${NC} $1" >&2
     fi
 }
 
@@ -184,64 +184,161 @@ test_connectivity() {
 }
 
 # Check S3 Gateway endpoint specifically (different method)
+# S3 Gateway endpoints:
+#   - Do NOT use private DNS (always resolves to public IPs - this is NORMAL)
+#   - Work via route table entries pointing to prefix list (pl-xxxxx)
+#   - May have endpoint policies restricting which buckets are accessible
 check_s3_gateway() {
     local result="unknown"
     local details=""
+    local endpoint_id=""
+    local route_tables=""
+    local policy_restricted="no"
 
     # S3 Gateway endpoints work via route tables, not DNS
-    # We check by looking at the route table for S3 prefix list
+    # DNS will ALWAYS return public IPs for S3 - this is expected behavior
 
     if command_exists aws; then
-        # Try to get instance metadata for VPC info
-        local instance_id
-        local vpc_id
-        local subnet_id
-
-        # Get instance metadata (IMDSv2)
+        # Get VPC ID from instance metadata
         local token
+        local mac
+        local vpc_id=""
+
         token=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
             -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null) || true
 
         if [[ -n "$token" ]]; then
-            instance_id=$(curl -s -H "X-aws-ec2-metadata-token: $token" \
-                http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null) || true
-        else
-            # Fallback to IMDSv1
-            instance_id=$(curl -s http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null) || true
+            mac=$(curl -s -H "X-aws-ec2-metadata-token: $token" \
+                http://169.254.169.254/latest/meta-data/mac 2>/dev/null) || true
+            if [[ -n "$mac" ]]; then
+                vpc_id=$(curl -s -H "X-aws-ec2-metadata-token: $token" \
+                    "http://169.254.169.254/latest/meta-data/network/interfaces/macs/${mac}/vpc-id" 2>/dev/null) || true
+            fi
         fi
 
-        if [[ -n "$instance_id" ]]; then
-            # Get VPC endpoints for S3
-            local s3_endpoints
-            s3_endpoints=$(aws ec2 describe-vpc-endpoints \
+        # Query S3 Gateway endpoints
+        local endpoint_info
+        if [[ -n "$vpc_id" ]]; then
+            endpoint_info=$(aws ec2 describe-vpc-endpoints \
                 --filters "Name=service-name,Values=com.amazonaws.${REGION}.s3" \
-                --query 'VpcEndpoints[?VpcEndpointType==`Gateway`].State' \
+                          "Name=vpc-endpoint-type,Values=Gateway" \
+                          "Name=vpc-id,Values=${vpc_id}" \
+                --query 'VpcEndpoints[0].[VpcEndpointId,State,RouteTableIds,PolicyDocument]' \
                 --output text --region "$REGION" 2>/dev/null) || true
+        else
+            # Fallback: query without VPC filter
+            endpoint_info=$(aws ec2 describe-vpc-endpoints \
+                --filters "Name=service-name,Values=com.amazonaws.${REGION}.s3" \
+                          "Name=vpc-endpoint-type,Values=Gateway" \
+                --query 'VpcEndpoints[0].[VpcEndpointId,State,RouteTableIds,PolicyDocument]' \
+                --output text --region "$REGION" 2>/dev/null) || true
+        fi
 
-            if [[ "$s3_endpoints" == "available" ]]; then
+        if [[ -n "$endpoint_info" && "$endpoint_info" != "None" ]]; then
+            endpoint_id=$(echo "$endpoint_info" | awk '{print $1}')
+            local state=$(echo "$endpoint_info" | awk '{print $2}')
+
+            if [[ "$state" == "available" ]]; then
                 result="vpc_endpoint"
-                details="S3 Gateway endpoint is available and associated with route tables"
+
+                # Check route table association
+                local rt_count
+                rt_count=$(aws ec2 describe-vpc-endpoints \
+                    --vpc-endpoint-ids "$endpoint_id" \
+                    --query 'VpcEndpoints[0].RouteTableIds | length(@)' \
+                    --output text --region "$REGION" 2>/dev/null) || rt_count="0"
+
+                # Check if policy is restrictive (not full access)
+                local policy
+                policy=$(aws ec2 describe-vpc-endpoints \
+                    --vpc-endpoint-ids "$endpoint_id" \
+                    --query 'VpcEndpoints[0].PolicyDocument' \
+                    --output text --region "$REGION" 2>/dev/null) || true
+
+                if [[ -n "$policy" ]] && ! echo "$policy" | grep -q '"Resource":\s*"\*"'; then
+                    policy_restricted="yes"
+                fi
+
+                details="Gateway endpoint ${endpoint_id} is available"
+                [[ "$rt_count" != "0" ]] && details+=", ${rt_count} route table(s) associated"
+                [[ "$policy_restricted" == "yes" ]] && details+=", policy restricts to specific buckets (OK)"
+                details+=" [DNS returns public IP - NORMAL for Gateway endpoints]"
             else
                 result="nat_or_none"
-                details="No S3 Gateway endpoint found - traffic goes through NAT"
+                details="S3 Gateway endpoint exists but state is: $state"
             fi
         else
-            details="Could not determine instance metadata"
+            result="nat_or_none"
+            details="No S3 Gateway endpoint found in VPC - traffic uses NAT"
+        fi
+    else
+        # AWS CLI not available - try functional test
+        result="unknown"
+        details="AWS CLI not available. Cannot verify Gateway endpoint (DNS check not applicable for S3)"
+
+        # Attempt functional S3 test if aws cli available elsewhere
+        if command_exists aws; then
+            if aws s3 ls --region "$REGION" &>/dev/null; then
+                result="functional"
+                details="S3 access works (could be via Gateway endpoint or NAT)"
+            fi
         fi
     fi
 
-    # Fallback: Test S3 connectivity and timing
-    if [[ "$result" == "unknown" ]]; then
-        local s3_fqdn="s3.${REGION}.amazonaws.com"
-        local s3_ip
-        s3_ip=$(resolve_dns "$s3_fqdn")
+    echo "$result|$details"
+}
 
-        if [[ -n "$s3_ip" ]]; then
-            # S3 always resolves to public IPs, but Gateway endpoint routes internally
-            # We can't determine purely from DNS, need route table check
-            result="unknown"
-            details="S3 resolves to $s3_ip (Gateway endpoints use route tables, not DNS)"
+# Check DynamoDB Gateway endpoint (similar to S3)
+check_dynamodb_gateway() {
+    local result="unknown"
+    local details=""
+
+    if command_exists aws; then
+        local token
+        local mac
+        local vpc_id=""
+
+        token=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
+            -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null) || true
+
+        if [[ -n "$token" ]]; then
+            mac=$(curl -s -H "X-aws-ec2-metadata-token: $token" \
+                http://169.254.169.254/latest/meta-data/mac 2>/dev/null) || true
+            if [[ -n "$mac" ]]; then
+                vpc_id=$(curl -s -H "X-aws-ec2-metadata-token: $token" \
+                    "http://169.254.169.254/latest/meta-data/network/interfaces/macs/${mac}/vpc-id" 2>/dev/null) || true
+            fi
         fi
+
+        local endpoint_state
+        if [[ -n "$vpc_id" ]]; then
+            endpoint_state=$(aws ec2 describe-vpc-endpoints \
+                --filters "Name=service-name,Values=com.amazonaws.${REGION}.dynamodb" \
+                          "Name=vpc-endpoint-type,Values=Gateway" \
+                          "Name=vpc-id,Values=${vpc_id}" \
+                --query 'VpcEndpoints[0].State' \
+                --output text --region "$REGION" 2>/dev/null) || true
+        else
+            endpoint_state=$(aws ec2 describe-vpc-endpoints \
+                --filters "Name=service-name,Values=com.amazonaws.${REGION}.dynamodb" \
+                          "Name=vpc-endpoint-type,Values=Gateway" \
+                --query 'VpcEndpoints[0].State' \
+                --output text --region "$REGION" 2>/dev/null) || true
+        fi
+
+        if [[ "$endpoint_state" == "available" ]]; then
+            result="vpc_endpoint"
+            details="DynamoDB Gateway endpoint available [DNS returns public IP - NORMAL]"
+        elif [[ -z "$endpoint_state" || "$endpoint_state" == "None" ]]; then
+            result="nat_or_optional"
+            details="No DynamoDB Gateway endpoint (optional if not using DynamoDB)"
+        else
+            result="nat_or_none"
+            details="DynamoDB Gateway endpoint state: $endpoint_state"
+        fi
+    else
+        result="unknown"
+        details="AWS CLI required for Gateway endpoint check"
     fi
 
     echo "$result|$details"
@@ -274,16 +371,20 @@ check_service() {
         if [[ "$routing" == "vpc_endpoint" ]]; then
             status="vpc_endpoint"
             log_success "$description"
-            [[ "$VERBOSE" == true ]] && echo "         └─ $s3_details"
+            [[ "$VERBOSE" == true ]] && echo "         └─ $s3_details" >&2
+        elif [[ "$routing" == "functional" ]]; then
+            status="functional"
+            log_success "$description (verified working)"
+            [[ "$VERBOSE" == true ]] && echo "         └─ $s3_details" >&2
         elif [[ "$routing" == "nat_or_none" ]]; then
             status="nat"
             EXIT_CODE=1
             log_error "$description"
-            [[ "$VERBOSE" == true ]] && echo "         └─ $s3_details"
+            [[ "$VERBOSE" == true ]] && echo "         └─ $s3_details" >&2
         else
             status="unknown"
-            log_warning "$description (could not determine routing)"
-            [[ "$VERBOSE" == true ]] && echo "         └─ $s3_details"
+            log_warning "$description (could not determine - AWS CLI needed)"
+            [[ "$VERBOSE" == true ]] && echo "         └─ $s3_details" >&2
         fi
 
         echo "$service_name|$endpoint_type|$status|$fqdn|-|$description"
@@ -292,24 +393,24 @@ check_service() {
 
     # Special handling for DynamoDB (Gateway endpoint)
     if [[ "$service_name" == "dynamodb" ]]; then
-        # Similar to S3, DynamoDB Gateway uses route tables
-        if command_exists aws; then
-            local ddb_endpoints
-            ddb_endpoints=$(aws ec2 describe-vpc-endpoints \
-                --filters "Name=service-name,Values=com.amazonaws.${REGION}.dynamodb" \
-                --query 'VpcEndpoints[?VpcEndpointType==`Gateway`].State' \
-                --output text --region "$REGION" 2>/dev/null) || true
+        local ddb_result
+        ddb_result=$(check_dynamodb_gateway)
+        routing=$(echo "$ddb_result" | cut -d'|' -f1)
+        local ddb_details
+        ddb_details=$(echo "$ddb_result" | cut -d'|' -f2)
 
-            if [[ "$ddb_endpoints" == "available" ]]; then
-                status="vpc_endpoint"
-                log_success "$description"
-            else
-                status="nat_or_optional"
-                log_warning "$description (no Gateway endpoint - optional if not using DynamoDB)"
-            fi
+        if [[ "$routing" == "vpc_endpoint" ]]; then
+            status="vpc_endpoint"
+            log_success "$description"
+            [[ "$VERBOSE" == true ]] && echo "         └─ $ddb_details" >&2
+        elif [[ "$routing" == "nat_or_optional" ]]; then
+            status="nat_or_optional"
+            log_warning "$description (optional if not using DynamoDB)"
+            [[ "$VERBOSE" == true ]] && echo "         └─ $ddb_details" >&2
         else
             status="unknown"
-            log_warning "$description (aws cli required for Gateway endpoint check)"
+            log_warning "$description (could not determine)"
+            [[ "$VERBOSE" == true ]] && echo "         └─ $ddb_details" >&2
         fi
 
         echo "$service_name|$endpoint_type|$status|$fqdn|-|$description"
@@ -322,7 +423,7 @@ check_service() {
     if [[ -z "$ip" ]]; then
         status="no_resolution"
         log_warning "$description - DNS resolution failed"
-        [[ "$VERBOSE" == true ]] && echo "         └─ FQDN: $fqdn"
+        [[ "$VERBOSE" == true ]] && echo "         └─ FQDN: $fqdn" >&2
         echo "$service_name|$endpoint_type|$status|$fqdn||$description"
         return
     fi
@@ -332,23 +433,23 @@ check_service() {
         status="vpc_endpoint"
         routing="private"
         log_success "$description"
-        [[ "$VERBOSE" == true ]] && echo "         └─ $fqdn → $ip (private IP)"
+        [[ "$VERBOSE" == true ]] && echo "         └─ $fqdn → $ip (private IP)" >&2
     else
         status="nat"
         routing="public"
         EXIT_CODE=1
         log_error "$description"
-        [[ "$VERBOSE" == true ]] && echo "         └─ $fqdn → $ip (public IP - using NAT)"
+        [[ "$VERBOSE" == true ]] && echo "         └─ $fqdn → $ip (public IP - using NAT)" >&2
     fi
 
     # Test connectivity
     if [[ "$VERBOSE" == true ]]; then
         if test_connectivity "$fqdn" 443 5; then
             connectivity="ok"
-            echo "         └─ Connectivity: ✅ Port 443 reachable"
+            echo "         └─ Connectivity: ✅ Port 443 reachable" >&2
         else
             connectivity="failed"
-            echo "         └─ Connectivity: ❌ Port 443 not reachable"
+            echo "         └─ Connectivity: ❌ Port 443 not reachable" >&2
         fi
     fi
 
@@ -406,7 +507,7 @@ print_summary() {
         ((total++))
 
         case "$status" in
-            vpc_endpoint) ((vpc_endpoint_count++)) ;;
+            vpc_endpoint|functional) ((vpc_endpoint_count++)) ;;
             nat) ((nat_count++)) ;;
             nat_or_optional|no_resolution) ((optional_count++)) ;;
             *) ((unknown_count++)) ;;
@@ -559,8 +660,12 @@ main() {
         echo "Checking AWS service routing..."
         echo ""
         echo "----------------------------------------------"
-        echo "Gateway Endpoints (Route Table Based)"
+        echo "Gateway Endpoints (S3, DynamoDB)"
         echo "----------------------------------------------"
+        echo "Note: Gateway endpoints use route tables, NOT DNS."
+        echo "      DNS always returns public IPs - this is normal."
+        echo "      Checking via AWS API for endpoint existence..."
+        echo ""
     fi
 
     # Check Gateway endpoints first
@@ -576,8 +681,11 @@ main() {
     if [[ "$JSON_OUTPUT" == false ]]; then
         echo ""
         echo "----------------------------------------------"
-        echo "Interface Endpoints (DNS Based)"
+        echo "Interface Endpoints (All other services)"
         echo "----------------------------------------------"
+        echo "Note: Interface endpoints use private DNS."
+        echo "      Private IP = VPC Endpoint, Public IP = NAT"
+        echo ""
     fi
 
     # Check Interface endpoints

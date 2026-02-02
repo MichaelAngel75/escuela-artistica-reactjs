@@ -435,11 +435,16 @@ data "aws_ssm_parameter" "ecs_optimized_ami" {
           # /aws/service/ecs/optimized-ami/amazon-linux-2023/<version>
 }
 
+# Lookup existing security group for ECS to VPC Endpoint communication
+data "aws_security_group" "ecs_to_vpc_endpoint" {
+  name = "ecs_to_vpc-endpoint"
+}
+
 resource "aws_launch_template" "ecs" {
   name_prefix   = "pohualizcalli-ecs-"
   image_id      = data.aws_ssm_parameter.ecs_optimized_ami.value
   instance_type = "t3.small"
-  ### t4g.small (Graviton/ARM) ---> Cheaper 
+  ### t4g.small (Graviton/ARM) ---> Cheaper
   ## https://docs.aws.amazon.com/AmazonECS/latest/developerguide/retrieve-ecs-optimized_AMI.html?utm_source=chatgpt.com
 
   iam_instance_profile {
@@ -447,7 +452,10 @@ resource "aws_launch_template" "ecs" {
   }
 
   network_interfaces {
-    security_groups = [aws_security_group.ecs_tasks_sg.id]
+    security_groups = [
+      aws_security_group.ecs_tasks_sg.id,
+      data.aws_security_group.ecs_to_vpc_endpoint.id
+    ]
     associate_public_ip_address = false
   }
 
