@@ -120,22 +120,26 @@ resource "aws_security_group" "vpc_endpoints" {
 #   - Application S3 access (pohualizcalli-several-files bucket)
 #   - Terraform state backend (if using S3)
 # =============================================================================
+#
+#
+# ----  ALREADY CREATED MANUALLY IN THE CONSOLE  ----
+#
+#
+# resource "aws_vpc_endpoint" "s3" {
+#   vpc_id            = local.vpc_id
+#   service_name      = "com.amazonaws.${var.aws_region}.s3"
+#   vpc_endpoint_type = "Gateway"
 
-resource "aws_vpc_endpoint" "s3" {
-  vpc_id            = local.vpc_id
-  service_name      = "com.amazonaws.${var.aws_region}.s3"
-  vpc_endpoint_type = "Gateway"
+#   # Associate with route tables (use private route tables or all if filter returns empty)
+#   route_table_ids = length(data.aws_route_tables.private.ids) > 0 ? data.aws_route_tables.private.ids : data.aws_route_tables.vpc_all.ids
 
-  # Associate with route tables (use private route tables or all if filter returns empty)
-  route_table_ids = length(data.aws_route_tables.private.ids) > 0 ? data.aws_route_tables.private.ids : data.aws_route_tables.vpc_all.ids
-
-  tags = {
-    Name    = "pohualizcalli-s3-endpoint"
-    Project = "Pohualizcalli"
-    Type    = "Gateway"
-    Cost    = "Free"
-  }
-}
+#   tags = {
+#     Name    = "pohualizcalli-s3-endpoint"
+#     Project = "Pohualizcalli"
+#     Type    = "Gateway"
+#     Cost    = "Free"
+#   }
+# }
 
 # =============================================================================
 # ECR API Endpoint (Interface)
