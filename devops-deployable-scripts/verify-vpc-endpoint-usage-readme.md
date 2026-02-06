@@ -1,6 +1,6 @@
 # VPC Endpoint vs NAT Gateway Verification Guide
 
-## Overview
+## Overview (missing: sts, kms, sqs) done (s3 [gateway], cloudwatch, ecr, dkr)
 
 This guide explains how to verify that your AWS services are routing through VPC Endpoints instead of NAT Gateway. This is critical during migration from NAT to VPC Endpoints to ensure:
 

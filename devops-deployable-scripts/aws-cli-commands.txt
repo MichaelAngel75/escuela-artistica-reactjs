@@ -1,0 +1,19 @@
+
+### --- show cloudwatch metrics billable
+ aws cloudwatch list-metrics \    
+  --query "Metrics[?starts_with(Namespace, 'AWS/')==\`false\`].[Namespace,MetricName]" \
+  --output table --region us-east-1 --profile <profile>
+
+
+### --- Cloudwatch Alarms/metrics disabled
+aws ecs update-cluster-settings \
+  --cluster mabelsrescue-ecs-cluster \
+  --settings name=containerInsights,value=disabled  --region us-east-1 --profile <profile>
+
+### --- show metrics still active
+aws cloudwatch list-metrics \
+  --namespace "ECS/ContainerInsights" \
+  --metric-name "CpuUtilized" \
+  --query "Metrics[].Dimensions" \
+  --output json
+
