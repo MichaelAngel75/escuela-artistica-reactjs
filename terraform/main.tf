@@ -424,6 +424,11 @@ resource "aws_iam_instance_profile" "ecs_instance_profile" {
 # ----------------------------------------------------
 data "aws_ssm_parameter" "ecs_optimized_ami" {
   name = "/aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id"
+  # // todo: AWS migration AL-2023. 
+  # name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id"
+  # // todo: AWS ARM gravito migration AL-2023
+  # name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/arm64/recommended/image_id"
+
   ##### -----   TODO:  AL2023
   # Switch to the recommended AL2023 ECS-optimized AMI SSM parameter:
   # name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id": ami-024ee5112d03921e2. (X86)
